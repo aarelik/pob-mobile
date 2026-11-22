@@ -94,6 +94,7 @@ class App {
 		this.rev++;
 		this.screen = "build";
 		this.tab = "overview";
+		void import("./tree-cache").then((m) => m.warmTree(info.treeVersion));
 		if (xmlForNew !== undefined) await this.saveNow();
 	}
 

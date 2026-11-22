@@ -4,8 +4,9 @@
 	import Icon from "../components/Icon.svelte";
 	import PobText from "../components/PobText.svelte";
 	import { app } from "../lib/app.svelte";
-	import { draw, drawArt, TreeModel, type ArtContext, type Geometry, type Highlight, type TreeState, type View } from "../lib/tree";
-	import { ArtStore, loadCatalogue, type ArtState, type TreeArt } from "../lib/tree-art";
+	import { draw, drawArt, TreeModel, type ArtContext, type Highlight, type TreeState, type View } from "../lib/tree";
+	import type { ArtState } from "../lib/tree-art";
+	import { treeData } from "../lib/tree-cache";
 	import type { TooltipLine } from "../engine/types";
 
 	interface Detail {
@@ -23,9 +24,6 @@
 		masterySelected?: number | null;
 	}
 
-	const geoCache = new Map<string, Geometry>();
-	const artCache = new Map<string, { art: TreeArt; store: ArtStore }>();
-	const artBase = new URL("pob/poe1/", document.baseURI).href;
 	let artCtx: ArtContext | null = null;
 	let canvas = $state<HTMLCanvasElement | null>(null);
 	let box = $state<HTMLDivElement | null>(null);
@@ -49,21 +47,11 @@
 		void app.rev;
 		(async () => {
 			const st = await app.call<TreeState>("get_tree_state");
-			let geo = geoCache.get(st.treeVersion);
-			if (!geo) {
-				geo = await app.call<Geometry>("tree_geometry");
-				geoCache.set(st.treeVersion, geo);
-			}
-			model = new TreeModel(geo, st.dynamicNodes);
+			const [entry, artState] = await Promise.all([treeData(st.treeVersion), app.call<ArtState>("tree_art_state")]);
+			entry.store.onLoad = () => redraw();
+			void entry.store.preload(entry.art.images);
+			model = new TreeModel(entry.geo, st.dynamicNodes);
 			tstate = st;
-			// Tree art: the sheet regions per version, then this build's jewel art.
-			let entry = artCache.get(st.treeVersion);
-			if (!entry) {
-				const [art, files] = await Promise.all([app.call<TreeArt>("tree_art"), loadCatalogue(artBase)]);
-				entry = { art, store: new ArtStore(artBase, files, st.treeVersion, () => redraw()) };
-				artCache.set(st.treeVersion, entry);
-			}
-			const artState = await app.call<ArtState>("tree_art_state");
 			artCtx = { art: entry.art, store: entry.store, state: artState };
 			alloc = new Set([...st.allocatedNodes, ...st.dynamicNodes.filter((d) => d.allocated).map((d) => d.id)]);
 			const key = `${app.build?.generation}:${st.treeVersion}`;

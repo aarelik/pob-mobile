@@ -19,20 +19,26 @@ export interface SavedBuild {
 const DB = "pob-mobile";
 const STORE = "builds";
 
+const CACHE = "cache";
+
 function open(): Promise<IDBDatabase> {
 	return new Promise((resolve, reject) => {
-		const req = indexedDB.open(DB, 1);
-		req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "id" });
+		const req = indexedDB.open(DB, 2);
+		req.onupgradeneeded = () => {
+			const db = req.result;
+			if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "id" });
+			if (!db.objectStoreNames.contains(CACHE)) db.createObjectStore(CACHE);
+		};
 		req.onsuccess = () => resolve(req.result);
 		req.onerror = () => reject(req.error);
 	});
 }
 
-async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>, store = STORE): Promise<T> {
 	const db = await open();
 	return new Promise((resolve, reject) => {
-		const t = db.transaction(STORE, mode);
-		const req = fn(t.objectStore(STORE));
+		const t = db.transaction(store, mode);
+		const req = fn(t.objectStore(store));
 		req.onsuccess = () => resolve(req.result);
 		req.onerror = () => reject(req.error);
 	});
@@ -46,6 +52,10 @@ export async function listBuilds(): Promise<SavedBuild[]> {
 export const getBuild = (id: string) => tx<SavedBuild | undefined>("readonly", (s) => s.get(id));
 export const putBuild = (b: SavedBuild) => tx("readwrite", (s) => s.put(b));
 export const deleteBuild = (id: string) => tx("readwrite", (s) => s.delete(id));
+
+/** Derived data worth keeping between visits (tree layout per version). */
+export const cacheGet = <T>(key: string) => tx<T | undefined>("readonly", (s) => s.get(key), CACHE).catch(() => undefined);
+export const cachePut = (key: string, value: unknown) => tx("readwrite", (s) => s.put(value, key), CACHE).catch(() => undefined);
 
 export function newId(): string {
 	return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);

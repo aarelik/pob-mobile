@@ -53,6 +53,28 @@ export interface Gem {
 	errMsg: string | null;
 	granted: unknown;
 	count: number;
+	maxLevel: number;
+	globalEffects: { index: number; name: string; enabled: boolean }[] | null;
+}
+
+export interface GroupSkill {
+	index: number;
+	name: string;
+	parts?: { name: string; stages: boolean }[];
+	part?: number;
+	statSets?: string[];
+	statSet?: number;
+	hasStages?: boolean;
+	stageCount?: number;
+	hasMines?: boolean;
+	mineCount?: number | null;
+	minions?: { id: string; name: string }[];
+	minion?: string | null;
+	minionSkills?: string[];
+	minionSkill?: number;
+	minionItemSets?: { id: number; title: string }[];
+	minionItemSet?: number | null;
+	minionLibrary?: string;
 }
 
 export interface SocketGroup {
@@ -65,7 +87,8 @@ export interface SocketGroup {
 	includeInFullDPS: boolean;
 	isMainSkill: boolean;
 	mainActiveSkill: number;
-	skills: { name: string; index: number }[];
+	skills: GroupSkill[];
+	groupCount: number | null;
 	grantedBy: { kind: string; item: string | null; node: string | null; source: string } | null;
 	source: string | null;
 	itemSockets: { text: string | null } | null;
@@ -77,6 +100,7 @@ export interface Skills {
 	socketGroups: SocketGroup[];
 	skillSets: { id: number; title: string | null; active?: boolean }[];
 	activeSkillSet: number;
+	socketSlots: { slot: string; label: string; item: string | null }[] | null;
 }
 
 export interface Slot {

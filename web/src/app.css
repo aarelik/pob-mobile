@@ -241,3 +241,85 @@ textarea.field {
 	font-variant: small-caps;
 	letter-spacing: 0.02em;
 }
+
+/* Shared bits for editors: selects, chips, rows in sheets. */
+select.field {
+	appearance: none;
+	background-image: linear-gradient(45deg, transparent 50%, var(--fg-2) 50%), linear-gradient(135deg, var(--fg-2) 50%, transparent 50%);
+	background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+	background-size: 5px 5px;
+	background-repeat: no-repeat;
+	padding-right: 28px;
+}
+.chips {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+.chip {
+	min-height: 32px;
+	padding: 0 12px;
+	border-radius: 16px;
+	border: 1px solid var(--line-1);
+	background: var(--bg-2);
+	color: var(--fg-1);
+	font-size: 13px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.chip.on {
+	background: var(--fg-0);
+	color: var(--bg-0);
+	border-color: var(--fg-0);
+}
+.rowbtn {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	min-height: var(--tap);
+	padding: 0 4px;
+	border: 0;
+	background: none;
+	text-align: left;
+	color: var(--fg-0);
+	font-size: 15px;
+}
+.rowbtn + .rowbtn {
+	border-top: 1px solid var(--line-0);
+}
+.rowbtn:active {
+	background: var(--bg-hover);
+}
+.rowbtn .grow {
+	flex: 1;
+	min-width: 0;
+}
+.formgrid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+}
+.formgrid label,
+label.stack {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+}
+.formgrid .wide {
+	grid-column: 1 / -1;
+}
+.actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin-top: 12px;
+}
+.actions .btn {
+	flex: 1;
+}
+.btn.danger {
+	color: var(--bad);
+}

@@ -321,7 +321,7 @@ export function drawArt(
 	const bgImg = bgSp && store.image(art.images[bgSp[0] - 1]);
 	if (bgImg) {
 		const tile = bgImg.naturalWidth * 1.33 * 2.5 * s;
-		const pat = ctx.createPattern(bgImg, "repeat");
+		const pat = ctx.createPattern(bgImg.src, "repeat");
 		if (pat && tile > 12) {
 			pat.setTransform(new DOMMatrix().translateSelf(X(0), Y(0)).scaleSelf(tile / bgImg.naturalWidth));
 			ctx.fillStyle = pat;

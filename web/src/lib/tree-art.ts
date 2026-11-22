@@ -51,14 +51,24 @@ export function loadCatalogue(base: string): Promise<Record<string, Entry>> {
 // PoB's art scale: DrawAsset draws an image of w pixels 2 * 1.33 * w tree units wide.
 export const ART = 2.66;
 
+/** A decoded image: an ImageBitmap where the browser has them, else an <img>. */
+export interface ArtImage {
+	src: CanvasImageSource;
+	naturalWidth: number;
+	naturalHeight: number;
+}
+
 export class ArtStore {
-	private imgs = new Map<string, HTMLImageElement | null>();
+	private imgs = new Map<string, ArtImage | null>();
+	private pending = new Map<string, Promise<void>>();
+	private notifyQueued = false;
+	/** Called once per batch of finished images, not once per image. */
+	onLoad: () => void = () => {};
 	private profiles = new Map<string, string[]>();
 	constructor(
 		private base: string,
 		private files: Record<string, Entry>,
 		private version: string,
-		private onLoad: () => void,
 	) {}
 
 	/** PoB's LoadImage looks in TreeData/ first, then TreeData/<version>/. */
@@ -69,20 +79,48 @@ export class ArtStore {
 		return this.files[`TreeData/${this.version}/${name}`] ?? null;
 	}
 
-	image(path: string): HTMLImageElement | null {
+	image(path: string): ArtImage | null {
 		const hit = this.imgs.get(path);
-		if (hit !== undefined) return hit && hit.complete && hit.naturalWidth ? hit : null;
+		if (hit !== undefined) return hit;
+		this.load(path);
+		return null;
+	}
+
+	/** Fetches and decodes off the main thread; resolves when the image is ready. */
+	load(path: string): Promise<void> {
+		if (this.imgs.has(path)) return Promise.resolve();
+		const busy = this.pending.get(path);
+		if (busy) return busy;
 		const entry = this.resolve(path);
 		if (!entry) {
 			this.imgs.set(path, null);
-			return null;
+			return Promise.resolve();
 		}
-		const img = new Image();
-		img.decoding = "async";
-		img.onload = () => this.onLoad();
-		img.src = new URL(`art/${entry[0]}.webp`, this.base).href;
-		this.imgs.set(path, img);
-		return null;
+		const url = new URL(`art/${entry[0]}.webp`, this.base).href;
+		const job = decode(url)
+			.then((img) => {
+				this.imgs.set(path, img);
+				this.queueNotify();
+			})
+			.catch(() => void this.imgs.set(path, null))
+			.finally(() => this.pending.delete(path));
+		this.pending.set(path, job);
+		return job;
+	}
+
+	/** Loads every image the tree uses; the caller redraws once at the end. */
+	preload(paths: string[]): Promise<void> {
+		return Promise.all(paths.map((p) => this.load(p))).then(() => {});
+	}
+
+	private queueNotify() {
+		if (this.notifyQueued) return;
+		this.notifyQueued = true;
+		// One redraw for everything that finished in the same ~100 ms.
+		setTimeout(() => {
+			this.notifyQueued = false;
+			this.onLoad();
+		}, 100);
 	}
 
 	size(path: string): [number, number] | null {
@@ -103,7 +141,7 @@ export class ArtStore {
 		c.width = 64;
 		c.height = img.naturalHeight;
 		const g = c.getContext("2d", { willReadFrequently: true })!;
-		g.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, 64, img.naturalHeight);
+		g.drawImage(img.src, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, 64, img.naturalHeight);
 		const data = g.getImageData(0, 0, 64, img.naturalHeight).data;
 		const rows: string[] = [];
 		const half = Math.ceil(img.naturalHeight / 2);
@@ -122,6 +160,19 @@ export class ArtStore {
 		this.profiles.set(path, rows);
 		return rows;
 	}
+}
+
+async function decode(url: string): Promise<ArtImage> {
+	if (typeof createImageBitmap === "function") {
+		const res = await fetch(url);
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const bmp = await createImageBitmap(await res.blob());
+		return { src: bmp, naturalWidth: bmp.width, naturalHeight: bmp.height };
+	}
+	const img = new Image();
+	img.src = url;
+	await img.decode();
+	return { src: img, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight };
 }
 
 /** Draws one asset or sprite centred on (x, y) in screen space. */
@@ -145,15 +196,15 @@ export function drawSprite(
 	const w = sw * ART * scale, h = sh * ART * scale;
 	if (half) {
 		// PoB's isHalf: the image is the top half of the circle; the bottom is its mirror.
-		ctx.drawImage(img, sx, sy, sw, sh, x - w / 2, y - h, w, h);
+		ctx.drawImage(img.src, sx, sy, sw, sh, x - w / 2, y - h, w, h);
 		ctx.save();
 		ctx.translate(x, y);
 		ctx.scale(1, -1);
-		ctx.drawImage(img, sx, sy, sw, sh, -w / 2, -h, w, h);
+		ctx.drawImage(img.src, sx, sy, sw, sh, -w / 2, -h, w, h);
 		ctx.restore();
 		return true;
 	}
-	ctx.drawImage(img, sx, sy, sw, sh, x - w / 2, y - h / 2, w, h);
+	ctx.drawImage(img.src, sx, sy, sw, sh, x - w / 2, y - h / 2, w, h);
 	return true;
 }
 
