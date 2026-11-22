@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Pack a staged PoB tree (pob/<game>, from sync-pob.mjs) for the browser.
 //
-//   web/public/pob/<game>/core-<hash>.pack.gz   files the engine reads at boot or on most builds
+//   web/public/pob/<game>/core-<hash>.pack      (gzip) files the engine reads at boot or on most builds
 //   web/public/pob/<game>/files/<path>          everything else, fetched by the worker on demand
 //   web/public/pob/<game>/manifest.json         { core, lazy: { path: size }, version, ... }
 //
@@ -82,11 +82,22 @@ head.writeUInt32LE(indexBuf.length);
 const raw = Buffer.concat([head, indexBuf, ...chunks]);
 const gz = zlib.gzipSync(raw, { level: 9 });
 const hash = crypto.createHash("sha256").update(gz).digest("hex").slice(0, 12);
-const coreName = `core-${hash}.pack.gz`;
+// Not ".gz": static hosts would add Content-Encoding and the browser would unzip it first.
+const coreName = `core-${hash}.pack`;
 fs.writeFileSync(path.join(out, coreName), gz);
+// The WebAssembly engine ships next to the data; its hash busts the cache when it changes.
+const engineOut = path.join(root, "web", "public", "engine");
+fs.mkdirSync(engineOut, { recursive: true });
+let engineHash = "none";
+for (const f of ["pob-engine.mjs", "pob-engine.wasm"]) {
+	const from = path.join(root, "engine", "build", "wasm", f);
+	if (!fs.existsSync(from)) throw new Error(`${from} is missing; run engine/build-wasm.sh first`);
+	fs.copyFileSync(from, path.join(engineOut, f));
+}
+engineHash = crypto.createHash("sha256").update(fs.readFileSync(path.join(engineOut, "pob-engine.wasm"))).digest("hex").slice(0, 12);
 fs.writeFileSync(
 	path.join(out, "manifest.json"),
-	JSON.stringify({ game, version: sync.upstreamVersion, commit: sync.upstreamCommit, latestTree: latest, core: coreName, coreSize: gz.length, coreRawSize: raw.length, lazy }),
+	JSON.stringify({ game, version: sync.upstreamVersion, commit: sync.upstreamCommit, latestTree: latest, engine: engineHash, core: coreName, coreSize: gz.length, coreRawSize: raw.length, lazy }),
 );
 const lazyTotal = Object.values(lazy).reduce((a, b) => a + b, 0);
 console.log(`${game}: core ${index.length} files, ${(raw.length / 1048576).toFixed(1)} MB -> ${(gz.length / 1048576).toFixed(1)} MB gz; ${Object.keys(lazy).length} on-demand files (${(lazyTotal / 1048576).toFixed(0)} MB); latest tree ${latest}`);

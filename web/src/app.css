@@ -1,0 +1,243 @@
+/* Design tokens follow PoB Redux's system (MIT): monochrome hairline chrome,
+   oklch ramps at one hue per theme, colour reserved for Path of Exile meaning.
+   Sizes are tuned for touch: 44px targets, 15px body text. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+:root {
+	color-scheme: dark;
+
+	--bg-0: oklch(15% 0.002 286);
+	--bg-1: oklch(17.4% 0.004 286);
+	--bg-2: oklch(19.7% 0.006 286);
+	--bg-3: oklch(22.4% 0.008 286);
+	--bg-hover: oklch(24.6% 0.009 286);
+	--bg-active: oklch(27.1% 0.011 286);
+
+	--line-0: oklch(22.9% 0.01 286);
+	--line-1: oklch(27.5% 0.011 286);
+	--line-2: oklch(33.2% 0.014 286);
+
+	--fg-0: oklch(96.2% 0.003 286);
+	--fg-1: oklch(78.8% 0.011 286);
+	--fg-2: oklch(63.7% 0.015 286);
+	--fg-3: oklch(58.5% 0.014 286);
+	--fg-4: oklch(46% 0.013 286);
+
+	--focus: oklch(71.6% 0.147 270);
+	--ok: oklch(78.4% 0.145 152);
+	--warn: oklch(79% 0.13 79);
+	--bad: oklch(68.8% 0.166 22);
+
+	--c-life: oklch(67.1% 0.185 24);
+	--c-mana: oklch(70.5% 0.154 264);
+	--c-es: oklch(80% 0.106 211);
+	--c-fire: oklch(73% 0.173 42);
+	--c-cold: oklch(77.2% 0.129 240);
+	--c-lightning: oklch(89.4% 0.156 106);
+	--c-chaos: oklch(71.7% 0.194 308);
+	--c-physical: oklch(83.9% 0.047 83);
+	--c-unique: oklch(68.8% 0.133 58);
+	--c-rare: oklch(82% 0.137 95);
+	--c-magic: oklch(68.5% 0.167 276);
+	--c-normal: oklch(88.1% 0.007 286);
+	--c-gem: oklch(79.4% 0.132 173);
+	--c-str: oklch(67.1% 0.185 24);
+	--c-dex: oklch(78.4% 0.145 152);
+	--c-int: oklch(70.5% 0.154 264);
+	--c-dps: oklch(86.4% 0.117 84);
+
+	--backdrop: rgb(0 0 0 / 0.6);
+	--shadow-sheet: 0 -12px 40px rgb(0 0 0 / 0.5);
+
+	--font: "Geist Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--mono: "Geist Mono Variable", ui-monospace, monospace;
+
+	--radius: 10px;
+	--radius-sm: 7px;
+	--tap: 44px;
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--nav-h: 58px;
+	--header-h: 52px;
+}
+
+* {
+	box-sizing: border-box;
+	-webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+	margin: 0;
+	height: 100%;
+	background: var(--bg-0);
+	color: var(--fg-0);
+	font-family: var(--font);
+	font-size: 15px;
+	line-height: 1.4;
+	-webkit-font-smoothing: antialiased;
+	-webkit-text-size-adjust: 100%;
+	overscroll-behavior: none;
+}
+
+#app {
+	height: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+button {
+	cursor: pointer;
+	touch-action: manipulation;
+}
+
+.num {
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.01em;
+}
+
+.muted {
+	color: var(--fg-2);
+}
+
+.eyebrow {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--fg-3);
+}
+
+/* Buttons */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: var(--tap);
+	padding: 0 16px;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--line-1);
+	background: var(--bg-2);
+	color: var(--fg-0);
+	font-weight: 500;
+}
+.btn:active {
+	background: var(--bg-active);
+}
+.btn.primary {
+	background: var(--fg-0);
+	color: var(--bg-0);
+	border-color: var(--fg-0);
+}
+.btn.primary:active {
+	background: var(--fg-1);
+}
+.btn.ghost {
+	background: transparent;
+	border-color: transparent;
+}
+.btn.block {
+	width: 100%;
+}
+.btn:disabled {
+	opacity: 0.45;
+}
+
+.icon-btn {
+	width: var(--tap);
+	height: var(--tap);
+	display: inline-grid;
+	place-items: center;
+	border: 0;
+	background: transparent;
+	border-radius: var(--radius-sm);
+	color: var(--fg-1);
+}
+.icon-btn:active {
+	background: var(--bg-active);
+}
+
+/* Cards and lists */
+.card {
+	background: var(--bg-1);
+	border: 1px solid var(--line-0);
+	border-radius: var(--radius);
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+}
+.list > * + * {
+	border-top: 1px solid var(--line-0);
+}
+
+.field {
+	width: 100%;
+	min-height: var(--tap);
+	padding: 10px 12px;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--line-1);
+	background: var(--bg-0);
+	color: var(--fg-0);
+	outline: none;
+}
+.field:focus {
+	border-color: var(--focus);
+}
+textarea.field {
+	resize: vertical;
+	font-family: var(--mono);
+	font-size: 13px;
+}
+
+/* Toggle switch */
+.switch {
+	position: relative;
+	width: 46px;
+	height: 28px;
+	flex: none;
+	border-radius: 14px;
+	border: 1px solid var(--line-2);
+	background: var(--bg-3);
+	transition: background 0.15s;
+}
+.switch::after {
+	content: "";
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--fg-2);
+	transition: transform 0.15s, background 0.15s;
+}
+.switch[aria-checked="true"] {
+	background: var(--fg-0);
+	border-color: var(--fg-0);
+}
+.switch[aria-checked="true"]::after {
+	transform: translateX(18px);
+	background: var(--bg-0);
+}
+
+.scroll {
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior: contain;
+}
+
+.fontin {
+	font-variant: small-caps;
+	letter-spacing: 0.02em;
+}

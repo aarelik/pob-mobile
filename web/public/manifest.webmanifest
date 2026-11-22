@@ -1,0 +1,10 @@
+{
+  "name": "PoB Mobile",
+  "short_name": "PoB",
+  "description": "Path of Building for Path of Exile, on your phone.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#16151a",
+  "theme_color": "#16151a",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -4,3 +4,6 @@ node_modules/
 dist/
 web/public/pob/
 web/public/engine/
+web/test/screens/
+web/node_modules/
+web/dist/
