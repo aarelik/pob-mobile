@@ -4,7 +4,8 @@
 	import Icon from "../components/Icon.svelte";
 	import PobText from "../components/PobText.svelte";
 	import { app } from "../lib/app.svelte";
-	import { draw, TreeModel, type Geometry, type Highlight, type TreeState, type View } from "../lib/tree";
+	import { draw, drawArt, TreeModel, type ArtContext, type Geometry, type Highlight, type TreeState, type View } from "../lib/tree";
+	import { ArtStore, loadCatalogue, type ArtState, type TreeArt } from "../lib/tree-art";
 	import type { TooltipLine } from "../engine/types";
 
 	interface Detail {
@@ -23,6 +24,9 @@
 	}
 
 	const geoCache = new Map<string, Geometry>();
+	const artCache = new Map<string, { art: TreeArt; store: ArtStore }>();
+	const artBase = new URL("pob/poe1/", document.baseURI).href;
+	let artCtx: ArtContext | null = null;
 	let canvas = $state<HTMLCanvasElement | null>(null);
 	let box = $state<HTMLDivElement | null>(null);
 	let model = $state<TreeModel | null>(null);
@@ -52,6 +56,15 @@
 			}
 			model = new TreeModel(geo, st.dynamicNodes);
 			tstate = st;
+			// Tree art: the sheet regions per version, then this build's jewel art.
+			let entry = artCache.get(st.treeVersion);
+			if (!entry) {
+				const [art, files] = await Promise.all([app.call<TreeArt>("tree_art"), loadCatalogue(artBase)]);
+				entry = { art, store: new ArtStore(artBase, files, st.treeVersion, () => redraw()) };
+				artCache.set(st.treeVersion, entry);
+			}
+			const artState = await app.call<ArtState>("tree_art_state");
+			artCtx = { art: entry.art, store: entry.store, state: artState };
 			alloc = new Set([...st.allocatedNodes, ...st.dynamicNodes.filter((d) => d.allocated).map((d) => d.id)]);
 			const key = `${app.build?.generation}:${st.treeVersion}`;
 			if (framedFor !== key && w) {
@@ -64,6 +77,7 @@
 	});
 
 	let raf = 0;
+	let lastDrawMs = 0;
 	function redraw() {
 		if (raf) return;
 		raf = requestAnimationFrame(() => {
@@ -71,7 +85,10 @@
 			const ctx = canvas?.getContext("2d");
 			if (!ctx || !model) return;
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-			draw(ctx, model, view, w, h, alloc, hl, tstate);
+			const t0 = performance.now();
+			if (artCtx) drawArt(ctx, model, view, w, h, alloc, hl, tstate, artCtx);
+			else draw(ctx, model, view, w, h, alloc, hl, tstate);
+			lastDrawMs = performance.now() - t0;
 		});
 	}
 
@@ -280,6 +297,11 @@
 			redraw();
 		},
 		allocated: () => [...alloc],
+		drawMs: () => lastDrawMs,
+		setScale(scale: number) {
+			view.scale = scale;
+			redraw();
+		},
 		neighbours: () => {
 			const out: number[] = [];
 			for (const l of model?.links ?? []) {

@@ -224,7 +224,8 @@ end
 local imageHandleClass = {}
 imageHandleClass.__index = imageHandleClass
 function NewImageHandle() return setmetatable({}, imageHandleClass) end
-function imageHandleClass:Load() self.valid = true end
+-- pob-mobile: remember which file so the phone can draw the same art.
+function imageHandleClass:Load(path) self.valid = true; self.path = path end
 function imageHandleClass:LoadArtRectangle() self.valid = true end
 function imageHandleClass:LoadArtArcBand() self.valid = true end
 function imageHandleClass:Unload() self.valid = false end

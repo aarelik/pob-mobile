@@ -1,7 +1,7 @@
 // Offline support. The page and its hashed assets come from this cache when
 // the network is gone; the engine worker caches the PoB data pack itself.
 // Bump VERSION to drop old caches.
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = `pob-mobile-shell-${VERSION}`;
 
 self.addEventListener("install", (event) => {
@@ -53,8 +53,8 @@ self.addEventListener("fetch", (event) => {
 	// The data pack is cached by the engine worker; on-demand PoB files are read
 	// with synchronous requests from that worker and go straight to the network.
 	if (/\/pob\/[^/]+\/(core-[0-9a-f]+\.pack|files\/)/.test(path)) return;
-	// Hashed build output never changes under the same name.
-	if (/\/assets\//.test(path)) return event.respondWith(cacheFirst(req));
+	// Hashed build output and tree art never change under the same name.
+	if (/\/assets\//.test(path) || /\/pob\/[^/]+\/art\/[0-9a-f]+\.webp$/.test(path)) return event.respondWith(cacheFirst(req));
 	// The page, the engine and the data manifest: fresh when online, cached when not.
 	event.respondWith(networkFirst(req));
 });

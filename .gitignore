@@ -1,10 +1,10 @@
-pob/
+dist/
 engine/build/
 node_modules/
-dist/
-web/public/pob/
-web/public/engine/
-web/test/screens/
-web/node_modules/
-web/dist/
+pob/
 upstream/
+web/dist/
+web/node_modules/
+web/public/engine/
+web/public/pob/
+web/test/screens/

@@ -1,3 +1,4 @@
+import { ART, assetSprite, CLASS_BACKGROUND, drawSprite, type ArtState, type ArtStore, type Sprite, type TreeArt } from "./tree-art";
 // Passive tree drawing: geometry from the engine (PoB's own positions and
 // connector rules), drawn on a 2D canvas with pan and pinch zoom.
 
@@ -278,4 +279,185 @@ export function draw(
 
 function rarityColor(r: string | null): string {
 	return r === "UNIQUE" ? css("--c-unique") : r === "RARE" ? css("--c-rare") : r === "MAGIC" ? css("--c-magic") : css("--c-normal");
+}
+
+// ---------------------------------------------------------------------------
+// The tree as Path of Exile draws it (art from the engine's tree_art)
+// ---------------------------------------------------------------------------
+
+export interface ArtContext {
+	store: ArtStore;
+	art: TreeArt;
+	state: ArtState;
+}
+
+export function drawArt(
+	ctx: CanvasRenderingContext2D,
+	model: TreeModel,
+	view: View,
+	w: number,
+	h: number,
+	alloc: Set<number>,
+	hl: Highlight,
+	state: TreeState | null,
+	a: ArtContext,
+) {
+	const { store, art } = a;
+	const s = view.scale;
+	const X = (x: number) => (x - view.cx) * s + w / 2;
+	const Y = (y: number) => (y - view.cy) * s + h / 2;
+	const margin = 700 / s;
+	const vx0 = view.cx - w / 2 / s - margin, vx1 = view.cx + w / 2 / s + margin;
+	const vy0 = view.cy - h / 2 / s - margin, vy1 = view.cy + h / 2 / s + margin;
+	const inView = (x: number, y: number, pad = 0) => x >= vx0 - pad && x <= vx1 + pad && y >= vy0 - pad && y <= vy1 + pad;
+	const myAsc = a.state.ascendancy;
+	const isMyAsc = (name: string | null) => !!name && (name === myAsc || name === a.state.secondary);
+
+	// Background: PoB tiles Background2 at 1.33 * 2.5 tree units per pixel.
+	ctx.fillStyle = "#0b0a09";
+	ctx.fillRect(0, 0, w, h);
+	const bgPath = art.assets.Background2 ? "Background2" : "Background1";
+	const bgSp = art.assets[bgPath];
+	const bgImg = bgSp && store.image(art.images[bgSp[0] - 1]);
+	if (bgImg) {
+		const tile = bgImg.naturalWidth * 1.33 * 2.5 * s;
+		const pat = ctx.createPattern(bgImg, "repeat");
+		if (pat && tile > 12) {
+			pat.setTransform(new DOMMatrix().translateSelf(X(0), Y(0)).scaleSelf(tile / bgImg.naturalWidth));
+			ctx.fillStyle = pat;
+			ctx.fillRect(0, 0, w, h);
+		}
+	}
+
+	// Class background art for the chosen class
+	const cb = a.state.classStart != null ? CLASS_BACKGROUND[a.state.classStart] : undefined;
+	if (cb) drawSprite(ctx, store, art, assetSprite(art, cb[0]), X(cb[1]), Y(cb[2]), s);
+
+	// Group backgrounds and ascendancy art
+	for (const g of art.groups) {
+		if (!inView(g.x, g.y, 1400)) continue;
+		if (g.asc) {
+			ctx.globalAlpha = isMyAsc(g.asc) ? 1 : 0.5;
+			drawSprite(ctx, store, art, assetSprite(art, g.bg), X(g.x), Y(g.y), s);
+			ctx.globalAlpha = 1;
+		} else {
+			drawSprite(ctx, store, art, assetSprite(art, g.bg), X(g.x), Y(g.y), s, !!g.half);
+		}
+	}
+
+	// Connectors, stroked in layers sampled from PoB's connector textures
+	const nodeState = (id: number): "alloc" | "path" | "unalloc" =>
+		alloc.has(id) ? "alloc" : hl.path.has(id) || hl.selected === id ? "path" : "unalloc";
+	const paths: Record<string, Path2D> = { Normal: new Path2D(), Intermediate: new Path2D(), Active: new Path2D(), Dim: new Path2D() };
+	for (const l of model.links) {
+		const n1 = model.nodes.get(l[0]), n2 = model.nodes.get(l[1]);
+		if (!n1 || !n2 || (!inView(n1.x, n1.y) && !inView(n2.x, n2.y))) continue;
+		const s1 = nodeState(l[0]), s2 = nodeState(l[1]);
+		let key = s1 === "alloc" && s2 === "alloc" ? "Active" : s1 !== "unalloc" && s2 !== "unalloc" && hl.path.size ? "Intermediate" : "Normal";
+		if (key === "Normal" && n1.a && !isMyAsc(n1.a)) key = "Dim";
+		const p = paths[key];
+		if (l.length === 7) {
+			const [, , gx, gy, r, a1, a2] = l;
+			p.moveTo(X(gx) + Math.sin(a1) * r * s, Y(gy) - Math.cos(a1) * r * s);
+			p.arc(X(gx), Y(gy), r * s, a1 - Math.PI / 2, a2 - Math.PI / 2, false);
+		} else {
+			p.moveTo(X(n1.x), Y(n1.y));
+			p.lineTo(X(n2.x), Y(n2.y));
+		}
+	}
+	const lineSize = store.size("TreeData/LineConnectorNormal.png")?.[1] ?? 16;
+	const width = lineSize * ART * s * 0.62;
+	ctx.lineCap = "butt";
+	for (const [key, tex] of [["Dim", "Normal"], ["Normal", "Normal"], ["Intermediate", "Intermediate"], ["Active", "Active"]] as const) {
+		const prof = store.profile(`TreeData/LineConnector${tex}.png`);
+		ctx.globalAlpha = key === "Dim" ? 0.6 : 1;
+		if (prof && width >= 1.5) {
+			prof.forEach((color, i) => {
+				ctx.strokeStyle = color;
+				ctx.lineWidth = Math.max(0.6, (width * (prof.length - i)) / prof.length);
+				ctx.stroke(paths[key]);
+			});
+		} else {
+			ctx.strokeStyle = key === "Active" ? "#d9b45f" : key === "Intermediate" ? "#7fb6c9" : "#4f4639";
+			ctx.lineWidth = Math.max(1, width * 0.6);
+			ctx.stroke(paths[key]);
+		}
+	}
+	ctx.globalAlpha = 1;
+
+	// Far out the icons are a pixel or two: dots, coloured like the frames.
+	const far = s < 0.035;
+	if (far) {
+		const dots: Record<string, Path2D> = { alloc: new Path2D(), path: new Path2D(), unalloc: new Path2D() };
+		for (const n of model.nodes.values()) {
+			if (n.t === 5 || !inView(n.x, n.y)) continue;
+			const r = Math.max(1.2, (RADIUS[n.t] + 14) * s);
+			const p = dots[nodeState(n.id)];
+			p.moveTo(X(n.x) + r, Y(n.y));
+			p.arc(X(n.x), Y(n.y), r, 0, Math.PI * 2);
+		}
+		ctx.fillStyle = "#6d6150";
+		ctx.fill(dots.unalloc);
+		ctx.fillStyle = "#8fc3d6";
+		ctx.fill(dots.path);
+		ctx.fillStyle = "#e9c46a";
+		ctx.fill(dots.alloc);
+	}
+
+	// Nodes: effect, icon, frame, as PassiveTreeView does
+	for (const n of far ? [] : model.nodes.values()) {
+		if (!inView(n.x, n.y)) continue;
+		const na = art.nodes[n.id];
+		const x = X(n.x), y = Y(n.y);
+		const st = nodeState(n.id);
+		const isAlloc = st === "alloc";
+		if (!na) {
+			// Cluster jewel nodes and anything without art: PoB's normal frame.
+			const frame = assetSprite(art, isAlloc ? "PSSkillFrameActive" : st === "path" ? "PSSkillFrameHighlighted" : "PSSkillFrame");
+			if (!drawSprite(ctx, store, art, frame, x, y, s)) fallbackNode(ctx, n, x, y, s, isAlloc);
+			continue;
+		}
+		let base: Sprite | undefined, overlay: string | undefined, effect: Sprite | undefined;
+		if (n.t === 5) {
+			overlay = isAlloc || n.c === a.state.classStart ? na.start : "PSStartNodeBackgroundInactive";
+		} else if (n.t === 6) {
+			overlay = na.mid;
+		} else if (n.t === 4) {
+			const key = st + (na.alt ? "Alt" : "");
+			base = assetSprite(art, (na.charm ? "Azmeri" : "") + (na.o?.[key] ?? ""));
+			if (isAlloc) overlay = a.state.sockets[n.id];
+		} else if (n.t === 3) {
+			if (isAlloc) {
+				base = na.on;
+				effect = na.fx;
+			} else base = st === "path" ? (na.hover ?? na.off) : na.off;
+		} else {
+			base = isAlloc ? na.on : na.off;
+			const key = st + (n.a ? "Ascend" : "") + (n.b ? "Blighted" : "");
+			const name = na.o?.[key] ?? na.o?.[st];
+			overlay = n.a && na.bp && name ? na.bp + name : name;
+		}
+		if (effect) drawSprite(ctx, store, art, effect, x, y, s);
+		const drewBase = drawSprite(ctx, store, art, base, x, y, s);
+		const drewOverlay = drawSprite(ctx, store, art, assetSprite(art, overlay), x, y, s);
+		if (!drewBase && !drewOverlay && n.t !== 5) fallbackNode(ctx, n, x, y, s, isAlloc);
+	}
+
+	// Search hits and the selected node
+	for (const n of model.nodes.values()) {
+		const sel = hl.selected === n.id;
+		if ((!sel && !hl.search.has(n.id)) || !inView(n.x, n.y)) continue;
+		ctx.beginPath();
+		ctx.arc(X(n.x), Y(n.y), (RADIUS[n.t] + 26) * s + 4, 0, Math.PI * 2);
+		ctx.lineWidth = sel ? 3 : 2.5;
+		ctx.strokeStyle = sel ? "#ffffff" : "#ff5b3a";
+		ctx.stroke();
+	}
+}
+
+function fallbackNode(ctx: CanvasRenderingContext2D, n: TNode, x: number, y: number, s: number, alloc: boolean) {
+	ctx.beginPath();
+	ctx.arc(x, y, Math.max(RADIUS[n.t] * s, 1.5), 0, Math.PI * 2);
+	ctx.fillStyle = alloc ? "#d9b45f" : "#3a352d";
+	ctx.fill();
 }

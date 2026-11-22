@@ -41,7 +41,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
 
       - uses: mymindstorm/setup-emsdk@v14
         with:
@@ -55,6 +57,11 @@ jobs:
         run: |
           node scripts/sync-pob.mjs --game poe1
           node scripts/pack-pob.mjs poe1
+
+      - name: Pack the passive tree art (WebP, one copy per distinct image)
+        run: |
+          npm ci
+          node scripts/pack-art.mjs poe1
 
       - name: Smoke test the engine on upstream's test builds
         run: node engine/test/wasm-smoke.mjs upstream/PathOfBuilding/spec/TestBuilds/3.13/*.xml

@@ -1,0 +1,9 @@
+{
+  "name": "pob-mobile-tools",
+  "private": true,
+  "type": "module",
+  "description": "Build tools for the data and art packs (the site itself is in web/)",
+  "devDependencies": {
+    "sharp": "^0.35.5"
+  }
+}

@@ -11,6 +11,7 @@ upstream PathOfBuilding (pinned in pob.json)
         │  scripts/sync-pob.mjs      stage src/ + runtime/lua as an installed release
         ▼
 pob/poe1/  ──── scripts/pack-pob.mjs ───►  web/public/pob/poe1/core-<hash>.pack   (5 MB gzip, read at boot)
+upstream TreeData images ─ pack-art.mjs ─► web/public/pob/poe1/art/<hash>.webp    (tree art, fetched per tree version)
                                            web/public/pob/poe1/files/…            (old trees, timeless data: on demand)
 engine/
   vendor/lua      PUC Lua 5.2 with pob-web's LuaJIT-compat patches, plus LuaJIT 2.1's 2026
@@ -59,7 +60,7 @@ To move to a newer upstream: check out the new commit, update `pob.json`, run `.
 
 ## Status
 
-Working: passive tree (pinch/pan, tap a node for its stats and what allocating it changes, allocate and
+Working: passive tree drawn with Path of Exile's art the way PoB draws it (pinch/pan, tap a node for its stats and what allocating it changes, allocate and
 remove, masteries, search, undo/redo, reset, cluster jewel nodes), item editing (paste from the game, uniques and
 templates from PoB's database with variants, swap between the build's items, edit as text, unequip, delete,
 flask toggles), boot with progress and offline cache, build list (IndexedDB), import from code / XML / pobb.in link,

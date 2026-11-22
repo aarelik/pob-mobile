@@ -161,3 +161,111 @@ M.item_db_variant_raw = function(p)
 	end
 	return { raw = item:BuildRaw() }
 end
+
+-- tree_art: which image (and which region of it) PoB draws for every part of
+-- the tree, read from PoB's loaded tree: tree.assets (frames, backgrounds,
+-- class art) and each node's sprites (icons from GGG's sheets). Image paths
+-- are what PoB asked SimpleGraphic to load ("TreeData/<file>"); like PoB's
+-- LoadImage, the phone looks for the file in TreeData/ and then in
+-- TreeData/<version>/. Regions are pixel rectangles (the headless host
+-- reports every image as 1x1, so PoB's fractions come out in pixels).
+M.tree_art = function()
+	local spec = build().spec
+	local tree = spec.tree
+	local images, imageIndex = array({}), {}
+	local function img(path)
+		if not path then return nil end
+		local i = imageIndex[path]
+		if not i then
+			images[#images + 1] = path
+			i = #images
+			imageIndex[path] = i
+		end
+		return i
+	end
+	local function sprite(s)
+		if type(s) ~= "table" or not s.handle or not s.handle.path then return nil end
+		if type(s[1]) == "number" and type(s[4]) == "number" then
+			return { img(s.handle.path), s[1], s[2], s[3] - s[1], s[4] - s[2] }
+		end
+		return { img(s.handle.path) }
+	end
+	local assets = {}
+	for name, a in pairs(tree.assets) do
+		local sp = sprite(a)
+		if sp then assets[name] = sp end
+	end
+	local nodes = {}
+	for id, node in pairs(tree.nodes) do
+		if node.x and node.group and not node.isProxy and not node.group.isProxy then
+			local e = { o = node.overlay and {} or nil }
+			if node.overlay then
+				for k, v in pairs(node.overlay) do
+					if type(v) == "string" then e.o[k] = v end
+				end
+				e.s = node.overlay.size
+			end
+			local t = node.type
+			local sp = node.sprites or {}
+			if t == "Normal" or t == "Notable" or t == "Keystone" then
+				local key = t:lower()
+				e.on = sprite(sp[key .. "Active"])
+				e.off = sprite(sp[key .. "Inactive"])
+			elseif t == "Mastery" then
+				local ms = node.masterySprites or {}
+				e.off = sprite(ms.inactiveIcon and ms.inactiveIcon.masteryInactive) or sprite(sp.mastery)
+				e.hover = sprite(ms.inactiveIcon and ms.inactiveIcon.masteryConnected)
+				e.on = sprite(ms.activeIcon and ms.activeIcon.masteryActiveSelected) or sprite(sp.mastery)
+				e.fx = sprite(ms.activeEffectImage and ms.activeEffectImage.masteryActiveEffect)
+			elseif t == "ClassStart" then
+				e.start = node.startArt
+			elseif t == "AscendClassStart" then
+				local prefix = tree.bloodlineSpritePrefixes and node.ascendancyName and tree.bloodlineSpritePrefixes[node.ascendancyName]
+				e.mid = (prefix or "") .. "AscendancyMiddle"
+			end
+			if node.ascendancyName then
+				e.bp = tree.bloodlineSpritePrefixes and tree.bloodlineSpritePrefixes[node.ascendancyName] or nil
+			end
+			e.charm = node.name == "Charm Socket" or nil
+			e.alt = node.expansionJewel and true or nil
+			nodes[tostring(id)] = e
+		end
+	end
+	local groups = array({})
+	for _, g in pairs(tree.groups) do
+		if not g.isProxy and g.x then
+			local bg, half
+			if g.ascendancyName then
+				if g.isAscendancyStart then bg = "Classes" .. g.ascendancyName end
+			elseif g.oo and g.oo[3] then
+				bg, half = "PSGroupBackground3", true
+			elseif g.oo and g.oo[2] then
+				bg = "PSGroupBackground2"
+			elseif g.oo and g.oo[1] then
+				bg = "PSGroupBackground1"
+			end
+			if bg then groups[#groups + 1] = { x = g.x, y = g.y, bg = bg, half = half, asc = opt(g.ascendancyName) } end
+		end
+	end
+	return { version = spec.treeVersion, images = images, assets = assets, nodes = nodes, groups = groups }
+end
+
+-- Per-build art state: the jewel art for each filled socket (PoB's own choice).
+M.tree_art_state = function()
+	local b = build()
+	local viewer = b.treeTab and b.treeTab.viewer
+	local sockets = {}
+	for nodeId, node in pairs(b.spec.nodes) do
+		if node.type == "Socket" and node.alloc then
+			local ok, _, jewel = pcall(b.itemsTab.GetSocketAndJewelForNodeID, b.itemsTab, nodeId)
+			if ok and jewel and viewer then
+				local alt = node.expansionJewel and not (jewel.base and jewel.base.subType == "Blightcore")
+				local ok2, name = pcall(viewer.GetJewelSocketOverlay, viewer, jewel, alt)
+				if ok2 and name then sockets[tostring(nodeId)] = name end
+			end
+		end
+	end
+	local mastery = {}
+	for id, eid in pairs(b.spec.masterySelections or {}) do mastery[tostring(id)] = eid end
+	return { sockets = sockets, classStart = opt(b.spec.curClassId), ascendancy = opt(b.spec.curAscendClassBaseName), secondary = opt(b.spec.curSecondaryAscendClass and b.spec.curSecondaryAscendClass.id) }
+end

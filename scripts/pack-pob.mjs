@@ -47,7 +47,10 @@ function isLazy(rel) {
 	return true;
 }
 
-fs.rmSync(out, { recursive: true, force: true });
+// Only this script's own output; art/ and art.json belong to pack-art.mjs.
+fs.mkdirSync(out, { recursive: true });
+for (const f of fs.readdirSync(out)) if (/^core-[0-9a-f]+\.pack$/.test(f) || f === "manifest.json") fs.rmSync(path.join(out, f));
+fs.rmSync(path.join(out, "files"), { recursive: true, force: true });
 fs.mkdirSync(path.join(out, "files"), { recursive: true });
 
 const index = [];
