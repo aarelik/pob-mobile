@@ -269,3 +269,28 @@ M.tree_art_state = function()
 	for id, eid in pairs(b.spec.masterySelections or {}) do mastery[tostring(id)] = eid end
 	return { sockets = sockets, classStart = opt(b.spec.curClassId), ascendancy = opt(b.spec.curAscendClassBaseName), secondary = opt(b.spec.curSecondaryAscendClass and b.spec.curSecondaryAscendClass.id) }
 end
+
+-- Jewels socketed in the tree, with the radius PoB draws round each
+-- (PassiveTreeView's jewel radius rings): where, how far, what colour.
+M.tree_jewels = function()
+	local b = build()
+	local spec = b.spec
+	local out = array({})
+	for nodeId, itemId in pairs(spec.jewels or {}) do
+		local item = b.itemsTab.items[itemId]
+		local node = spec.nodes[nodeId]
+		if item and node and node.x then
+			local r = item.jewelRadiusIndex and data.jewelRadius[item.jewelRadiusIndex]
+			out[#out + 1] = {
+				id = nodeId,
+				item = opt(item.name),
+				rarity = opt(item.rarity),
+				inner = r and r.inner or null,
+				outer = r and r.outer or null,
+				col = r and opt(r.col) or null,
+				allocated = spec.allocNodes[nodeId] ~= nil,
+			}
+		end
+	end
+	return { jewels = out }
+end

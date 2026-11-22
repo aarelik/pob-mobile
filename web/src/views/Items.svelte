@@ -3,6 +3,7 @@
 	// or replace its item: from the build's other items, PoB's unique and
 	// template databases, or text copied from the game (Ctrl+C on an item).
 	import Icon from "../components/Icon.svelte";
+	import ItemEditor from "../components/ItemEditor.svelte";
 	import Sheet from "../components/Sheet.svelte";
 	import TooltipView from "../components/TooltipView.svelte";
 	import type { Slot, Tooltip } from "../engine/types";
@@ -31,7 +32,11 @@
 		variants: number;
 		variantNames: string[];
 	}
-	type Mode = "view" | "owned" | "unique" | "rare" | "paste" | "edit";
+	type Mode = "view" | "owned" | "unique" | "rare" | "paste" | "craft";
+	interface Base {
+		name: string;
+		label: string | null;
+	}
 
 	let slots = $state<Slot[]>([]);
 	let items = $state<OwnedItem[]>([]);
@@ -48,6 +53,20 @@
 	let pick = $state<{ kind: "owned"; id: number } | { kind: "db"; db: string; item: DbItem; variant: number } | null>(null);
 	let working = $state(false);
 	let dbLoading = $state(false);
+	let editorOpen = $state(false);
+	let editId = $state<number | null>(null);
+	let craftTypes = $state<string[]>([]);
+	let craftBases = $state<Record<string, Base[]>>({});
+	let noRare = $state<string[]>([]);
+	let craftType = $state("");
+	let craftQuery = $state("");
+	let craftRarity = $state<"NORMAL" | "MAGIC" | "RARE">("RARE");
+	let craftTitle = $state("");
+	const baseHits = $derived.by(() => {
+		const q = craftQuery.trim().toLowerCase();
+		const list = craftBases[craftType] ?? [];
+		return q ? list.filter((b) => (b.label ?? b.name).toLowerCase().includes(q)) : list;
+	});
 
 	$effect(() => {
 		void app.rev;
@@ -63,7 +82,16 @@
 	const visible = $derived(slots.filter((s) => s.shown && !(s.inactive && !s.itemId) && (s.itemId > 0 || !s.slot.includes("Abyssal"))));
 	const gear = $derived(visible.filter((s) => !s.slot.startsWith("Flask") && !s.nodeId));
 	const flasks = $derived(visible.filter((s) => s.slot.startsWith("Flask")));
-	const jewels = $derived(visible.filter((s) => s.nodeId && s.itemId > 0));
+	const jewels = $derived(visible.filter((s) => s.nodeId));
+
+	// The tree's "socket a jewel" button lands here.
+	$effect(() => {
+		const want = app.openSlot;
+		if (!want || !slots.length) return;
+		const s = slots.find((x) => x.slot === want);
+		app.openSlot = null;
+		if (s) show(s);
+	});
 	const owned = $derived(sel ? items.filter((i) => i.compatibleSlots.includes(sel!.slot) && i.id !== sel!.itemId) : []);
 
 	async function loadTooltip() {
@@ -91,13 +119,34 @@
 			searchDb();
 		}
 		if (m === "paste") text = "";
-		if (m === "edit" && sel?.itemId) {
-			text = "";
-			app.call<{ raw: string }>("item_raw", { itemId: sel.itemId }).then((r) => {
-				text = r.raw;
-				previewText();
-			});
+		if (m === "craft") loadBases();
+	}
+	async function loadBases() {
+		const r = await app.call<{ types: string[]; bases: Record<string, Base[]>; noRare: string[] }>("craft_bases", { slot: sel!.slot });
+		craftTypes = r.types;
+		craftBases = r.bases;
+		noRare = r.noRare;
+		if (!craftTypes.includes(craftType)) craftType = craftTypes[0] ?? "";
+	}
+	async function craft(base: Base) {
+		working = true;
+		try {
+			const rarity = noRare.includes(craftType) && craftRarity === "RARE" ? "MAGIC" : craftRarity;
+			const r = await app.mutate<{ itemId: number }>("craft_item", { type: craftType, baseName: base.name, rarity, title: craftTitle || undefined, slotName: sel!.slot });
+			mode = "view";
+			await loadTooltip();
+			editId = r.itemId;
+			editorOpen = true;
+		} catch {
+			/* reported */
+		} finally {
+			working = false;
 		}
+	}
+	function modify() {
+		if (!sel?.itemId) return;
+		editId = sel.itemId;
+		editorOpen = true;
 	}
 
 	// --- previews (PoB's tooltip with "equipping this item will give you") ---
@@ -125,7 +174,7 @@
 				return;
 			}
 			try {
-				preview = await app.call<Tooltip>("item_tooltip", { raw: text, slotName: mode === "edit" ? false : sel!.slot });
+				preview = await app.call<Tooltip>("item_tooltip", { raw: text, slotName: sel!.slot });
 			} catch (e) {
 				preview = null;
 				previewError = e instanceof Error ? e.message : String(e);
@@ -175,7 +224,6 @@
 		return run(() => app.mutate("item_db_equip", { db: p.db, name: p.item.name, slotName: s, variant: p.variant }), `Equipped ${p.item.name}`);
 	}
 	const equipText = () => run(() => app.mutate("equip_item_raw", { text, slot: sel!.slot }), "Item added and equipped");
-	const saveEdit = () => run(() => app.mutate("item_edit", { itemId: sel!.itemId, text }), "Item updated");
 	const unequip = () => run(() => app.mutate("unequip_item", { slot: sel!.slot }), "Unequipped");
 	function remove() {
 		if (!sel?.itemId || !confirm(`Delete ${sel.itemName ?? "this item"} from the build?`)) return;
@@ -189,7 +237,14 @@
 		{ id: "unique", label: "Uniques" },
 		{ id: "rare", label: "Templates" },
 		{ id: "paste", label: "Paste" },
+		{ id: "craft", label: "Craft" },
 	];
+	let wasEditing = false;
+	$effect(() => {
+		// The editor closed: show the item as it now is.
+		if (wasEditing && !editorOpen) loadTooltip();
+		wasEditing = editorOpen;
+	});
 </script>
 
 {#snippet slotList(list: Slot[], flask = false)}
@@ -235,20 +290,11 @@
 		{#if mode === "view"}
 			<div class="acts">
 				<button class="btn primary" onclick={() => setMode(owned.length ? "owned" : "unique")}><Icon name="swap" size={18} /> Change</button>
-				<button class="btn" onclick={() => setMode("edit")}><Icon name="edit" size={18} /> Edit</button>
+				<button class="btn" onclick={modify}><Icon name="edit" size={18} /> Edit</button>
 				<button class="btn" onclick={unequip} disabled={working}><Icon name="eject" size={18} /> Unequip</button>
 				<button class="btn danger" onclick={remove} aria-label="Delete item" disabled={working}><Icon name="trash" size={18} /></button>
 			</div>
 			{#if tooltip}<TooltipView {tooltip} />{:else}<p class="muted">Loading…</p>{/if}
-		{:else if mode === "edit"}
-			<p class="muted small top">Edit the item as text, the way Path of Building's item editor does. The preview updates as you type.</p>
-			<textarea class="field" rows="12" bind:value={text} oninput={previewText} autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
-			{#if previewError}<p class="err small">{previewError}</p>{/if}
-			<div class="two">
-				<button class="btn" onclick={() => setMode("view")}>Cancel</button>
-				<button class="btn primary" onclick={saveEdit} disabled={working || !preview}>Save changes</button>
-			</div>
-			{#if preview}<div class="prev"><TooltipView tooltip={preview} /></div>{/if}
 		{:else}
 			<div class="tabs">
 				{#each TABS as t (t.id)}
@@ -292,6 +338,32 @@
 						</button>
 					{/each}
 				</div>
+				{:else if mode === "craft"}
+					<div class="formgrid">
+						<label class="wide">
+							<span class="eyebrow">Item type</span>
+							<select class="field" bind:value={craftType}>
+								{#each craftTypes as t (t)}<option value={t}>{t}</option>{/each}
+							</select>
+						</label>
+						<div class="wide chips">
+							{#each ["NORMAL", "MAGIC", "RARE"] as const as r (r)}
+								<button class="chip" class:on={craftRarity === r} onclick={() => (craftRarity = r)} style:color={craftRarity === r ? null : RARITY[r]}>{r[0] + r.slice(1).toLowerCase()}</button>
+							{/each}
+						</div>
+						{#if craftRarity === "RARE"}
+							<input class="field wide" placeholder="Name (optional)" bind:value={craftTitle} />
+						{/if}
+						<input class="field wide" type="search" placeholder="Search bases" bind:value={craftQuery} />
+					</div>
+					<p class="muted small">Pick a base. It is added to the build and equipped here, then the crafting panel opens.</p>
+					<div class="list card">
+						{#each baseHits.slice(0, 80) as b (b.name)}
+							<button class="pick" onclick={() => craft(b)} disabled={working}>
+								<span>{b.label ?? b.name}</span>
+							</button>
+						{/each}
+					</div>
 			{:else if mode === "paste"}
 				<p class="muted small top">In Path of Exile, hover an item and press Ctrl+C (or copy it from the trade site), then paste it here.</p>
 				<textarea class="field" rows="7" bind:value={text} oninput={previewText} placeholder={"Item Class: Rings\nRarity: Rare\n…"} autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
@@ -309,6 +381,8 @@
 		{/if}
 	{/if}
 </Sheet>
+
+<ItemEditor bind:open={editorOpen} itemId={editId} slotName={sel?.slot ?? null} />
 
 <style>
 	.page {
@@ -384,7 +458,7 @@
 	}
 	.tabs {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(5, 1fr);
 		background: var(--bg-0);
 		border: 1px solid var(--line-1);
 		border-radius: var(--radius-sm);

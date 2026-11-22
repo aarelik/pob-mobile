@@ -4,7 +4,7 @@
 	import Icon from "../components/Icon.svelte";
 	import PobText from "../components/PobText.svelte";
 	import { app } from "../lib/app.svelte";
-	import { draw, drawArt, TreeModel, type ArtContext, type Highlight, type TreeState, type View } from "../lib/tree";
+	import { draw, drawArt, TreeModel, type ArtContext, type TreeJewel, type Highlight, type TreeState, type View } from "../lib/tree";
 	import type { ArtState } from "../lib/tree-art";
 	import { treeData } from "../lib/tree-cache";
 	import type { TooltipLine } from "../engine/types";
@@ -40,6 +40,11 @@
 	let hits = $state<number[]>([]);
 	let hitIndex = 0;
 	let choosingMastery = $state(false);
+	let jewels = $state<TreeJewel[]>([]);
+	function socketJewel(id: number) {
+		app.openSlot = `Jewel ${id}`;
+		app.tab = "items";
+	}
 	let w = 0, h = 0, dpr = 1;
 
 	// Geometry per tree version, then the allocation state on every change.
@@ -47,12 +52,17 @@
 		void app.rev;
 		(async () => {
 			const st = await app.call<TreeState>("get_tree_state");
-			const [entry, artState] = await Promise.all([treeData(st.treeVersion), app.call<ArtState>("tree_art_state")]);
+			const [entry, artState, tj] = await Promise.all([
+				treeData(st.treeVersion),
+				app.call<ArtState>("tree_art_state"),
+				app.call<{ jewels: TreeJewel[] }>("tree_jewels").catch(() => ({ jewels: [] })),
+			]);
+			jewels = tj.jewels;
 			entry.store.onLoad = () => redraw();
 			void entry.store.preload(entry.art.images);
 			model = new TreeModel(entry.geo, st.dynamicNodes);
 			tstate = st;
-			artCtx = { art: entry.art, store: entry.store, state: artState };
+			artCtx = { art: entry.art, store: entry.store, state: artState, jewels: tj.jewels };
 			alloc = new Set([...st.allocatedNodes, ...st.dynamicNodes.filter((d) => d.allocated).map((d) => d.id)]);
 			const key = `${app.build?.generation}:${st.treeVersion}`;
 			if (framedFor !== key && w) {
@@ -356,6 +366,13 @@
 					{/each}
 				</div>
 			{:else}
+				{#if d.type === "Socket"}
+					{@const j = jewels.find((x) => x.id === d.id)}
+					<div class="jewel">
+						{#if j}<span class="small">{j.item}</span>{:else}<span class="muted small">Empty socket</span>{/if}
+						{#if d.allocated}<button class="btn" onclick={() => socketJewel(d.id)}>{j ? "Change jewel" : "Socket a jewel"}</button>{/if}
+					</div>
+				{/if}
 				<div class="actions">
 					{#if d.allocated}
 						<button class="btn" onclick={() => click()}>Remove{d.removes ? ` (${d.removes + 1} nodes)` : ""}</button>
@@ -379,6 +396,13 @@
 </div>
 
 <style>
+	.jewel {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		margin: 8px 0;
+	}
 	.tree {
 		position: relative;
 		height: 100%;

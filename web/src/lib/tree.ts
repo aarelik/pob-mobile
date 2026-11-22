@@ -285,10 +285,20 @@ function rarityColor(r: string | null): string {
 // The tree as Path of Exile draws it (art from the engine's tree_art)
 // ---------------------------------------------------------------------------
 
+export interface TreeJewel {
+	id: number;
+	item: string | null;
+	inner: number | null;
+	outer: number | null;
+	col: string | null;
+	allocated: boolean;
+}
+
 export interface ArtContext {
 	store: ArtStore;
 	art: TreeArt;
 	state: ArtState;
+	jewels?: TreeJewel[];
 }
 
 export function drawArt(
@@ -402,6 +412,35 @@ export function drawArt(
 		ctx.fill(dots.path);
 		ctx.fillStyle = "#e9c46a";
 		ctx.fill(dots.alloc);
+	}
+
+	// Jewel radius rings, as PassiveTreeView draws them round socketed jewels.
+	for (const j of a.jewels ?? []) {
+		const n = model.nodes.get(j.id);
+		if (!n || !j.outer || !j.allocated && hl.selected !== j.id) continue;
+		const m = /\^x([0-9a-fA-F]{6})/.exec(j.col ?? "");
+		const col = m ? `#${m[1]}` : "#bb6600";
+		const sel = hl.selected === j.id;
+		ctx.save();
+		ctx.globalAlpha = sel ? 0.95 : 0.55;
+		ctx.strokeStyle = col;
+		ctx.lineWidth = Math.max(1.5, 14 * s);
+		ctx.beginPath();
+		ctx.arc(X(n.x), Y(n.y), j.outer * s, 0, Math.PI * 2);
+		if (j.inner) {
+			ctx.moveTo(X(n.x) + j.inner * s, Y(n.y));
+			ctx.arc(X(n.x), Y(n.y), j.inner * s, 0, Math.PI * 2);
+		}
+		ctx.stroke();
+		if (sel) {
+			ctx.globalAlpha = 0.08;
+			ctx.fillStyle = col;
+			ctx.beginPath();
+			ctx.arc(X(n.x), Y(n.y), j.outer * s, 0, Math.PI * 2);
+			if (j.inner) ctx.arc(X(n.x), Y(n.y), j.inner * s, 0, Math.PI * 2, true);
+			ctx.fill();
+		}
+		ctx.restore();
 	}
 
 	// Nodes: effect, icon, frame, as PassiveTreeView does

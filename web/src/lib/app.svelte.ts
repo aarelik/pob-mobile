@@ -25,6 +25,8 @@ class App {
 	toast = $state<{ text: string; kind: "info" | "error" } | null>(null);
 	lazyLoading = $state<string | null>(null);
 	saved = $state<SavedBuild[]>([]);
+	/** A slot for the Items tab to open (set by the tree's jewel button). */
+	openSlot = $state<string | null>(null);
 
 	engine!: EngineClient;
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
