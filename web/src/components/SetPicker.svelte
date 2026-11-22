@@ -66,7 +66,7 @@
 </script>
 
 <button class="chip setchip" onclick={() => (open = true)} aria-label={`${NAMES[kind]}: ${active?.title ?? ""}`}>
-	<span class="k">{label ?? NAMES[kind]}</span>
+	{#if label !== ""}<span class="k">{label ?? NAMES[kind]}</span>{/if}
 	<span class="v">{stripPobText(active?.title ?? "Default")}</span>
 	{#if sets.length > 1}<span class="n num">{sets.length}</span>{/if}
 </button>

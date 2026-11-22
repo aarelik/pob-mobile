@@ -2,6 +2,9 @@
 	// PoB's sidebar stat list, row for row with its colours; rows with a
 	// breakdown open it in a sheet.
 	import BreakdownView from "../components/BreakdownView.svelte";
+	import CalcGrid from "../components/CalcGrid.svelte";
+	import Compare from "../components/Compare.svelte";
+	import Party from "../components/Party.svelte";
 	import Icon from "../components/Icon.svelte";
 	import PobText from "../components/PobText.svelte";
 	import Sheet from "../components/Sheet.svelte";
@@ -10,6 +13,13 @@
 	import { stripPobText } from "../lib/pobtext";
 
 	let side = $state<Sidebar | null>(null);
+	let seg = $state<"summary" | "calcs" | "compare" | "party">("summary");
+	const SEGS = [
+		["summary", "Summary"],
+		["calcs", "Calculations"],
+		["compare", "Compare"],
+		["party", "Party"],
+	] as const;
 	let open = $state(false);
 	let title = $state("");
 	let breakdown = $state<Breakdown | null>(null);
@@ -43,6 +53,16 @@
 </script>
 
 <div class="page">
+	<div class="seg">
+		{#each SEGS as [id, label] (id)}<button class:on={seg === id} onclick={() => (seg = id)}>{label}</button>{/each}
+	</div>
+	{#if seg === "calcs"}
+		<div><CalcGrid /></div>
+	{:else if seg === "compare"}
+		<div><Compare /></div>
+	{:else if seg === "party"}
+		<div><Party /></div>
+	{:else}
 	{#if side?.notCounted?.count}
 		<div class="nc card">
 			<Icon name="info" size={16} />
@@ -63,6 +83,7 @@
 			{/each}
 		</div>
 	{/each}
+	{/if}
 </div>
 
 <Sheet bind:open {title}>
@@ -75,6 +96,27 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
+	}
+	.seg {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 3px;
+		padding: 3px;
+		background: var(--bg-0);
+		border: 1px solid var(--line-1);
+		border-radius: var(--radius-sm);
+	}
+	.seg button {
+		min-height: 34px;
+		border: 0;
+		border-radius: 5px;
+		background: none;
+		color: var(--fg-2);
+		font-size: 12.5px;
+	}
+	.seg button.on {
+		background: var(--bg-3);
+		color: var(--fg-0);
 	}
 	.nc {
 		display: flex;

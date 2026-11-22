@@ -7,8 +7,12 @@
 //
 // Pack format (before gzip): u32 LE index length, JSON index [[path, offset, size], ...], payload.
 // The engine reads on-demand files with a synchronous XHR from its worker.
+// Lua files are stored as bytecode compiled by the WebAssembly engine's own
+// parser (loadfile reads either form; bytecode loads about 5x faster than
+// source parses). POB_SOURCE=1 keeps them as source.
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
@@ -18,6 +22,25 @@ const game = process.argv[2] || "poe1";
 const src = path.join(root, "pob", game);
 const out = path.join(root, "web", "public", "pob", game);
 const sync = JSON.parse(fs.readFileSync(path.join(src, "pob-mobile-sync.json"), "utf8"));
+
+// The wasm engine's pob_compile: same parser and bytecode sizes as the browser's VM.
+let compile = (_rel, data) => data;
+let compiled = 0;
+if (!process.env.POB_SOURCE) {
+	globalThis.require = createRequire(import.meta.url);
+	globalThis.__dirname = path.join(root, "engine/build/wasm");
+	const { default: createPobEngine } = await import(path.join(root, "engine/build/wasm/pob-engine.mjs"));
+	const mod = await createPobEngine({ wasmBinary: fs.readFileSync(path.join(root, "engine/build/wasm/pob-engine.wasm")), print() {}, printErr() {} });
+	compile = (rel, data) => {
+		mod.FS.writeFile("/in.lua", data);
+		// Data tables need no line numbers; code keeps them for tracebacks.
+		const strip = /^(Data|TreeData)\//.test(rel) ? 1 : 0;
+		const err = mod.ccall("pob_compile", "string", ["string", "string", "string", "number"], ["/in.lua", "/out.luac", `@/pob/${rel}`, strip]);
+		if (err) throw new Error(`${rel}: ${err}`);
+		compiled++;
+		return Buffer.from(mod.FS.readFile("/out.luac"));
+	};
+}
 
 const files = [];
 (function walk(dir, rel) {
@@ -62,11 +85,12 @@ for (const rel of files) {
 	if (isLazy(rel)) {
 		const dest = path.join(out, "files", rel);
 		fs.mkdirSync(path.dirname(dest), { recursive: true });
-		fs.copyFileSync(abs, dest);
-		lazy[rel] = fs.statSync(abs).size;
+		if (rel.endsWith(".lua")) fs.writeFileSync(dest, compile(rel, fs.readFileSync(abs)));
+		else fs.copyFileSync(abs, dest);
+		lazy[rel] = fs.statSync(dest).size;
 		continue;
 	}
-	const data = fs.readFileSync(abs);
+	const data = rel.endsWith(".lua") ? compile(rel, fs.readFileSync(abs)) : fs.readFileSync(abs);
 	index.push([rel, offset, data.length]);
 	chunks.push(data);
 	offset += data.length;
@@ -74,7 +98,7 @@ for (const rel of files) {
 // The engine's own Lua (compat, host, bridge) travels in the same pack.
 for (const name of fs.readdirSync(path.join(root, "engine", "lua")).sort()) {
 	if (!name.endsWith(".lua")) continue;
-	const data = fs.readFileSync(path.join(root, "engine", "lua", name));
+	const data = compile(`__engine/${name}`, fs.readFileSync(path.join(root, "engine", "lua", name)));
 	index.push([`__engine/${name}`, offset, data.length]);
 	chunks.push(data);
 	offset += data.length;
@@ -103,4 +127,4 @@ fs.writeFileSync(
 	JSON.stringify({ game, version: sync.upstreamVersion, commit: sync.upstreamCommit, latestTree: latest, engine: engineHash, core: coreName, coreSize: gz.length, coreRawSize: raw.length, lazy }),
 );
 const lazyTotal = Object.values(lazy).reduce((a, b) => a + b, 0);
-console.log(`${game}: core ${index.length} files, ${(raw.length / 1048576).toFixed(1)} MB -> ${(gz.length / 1048576).toFixed(1)} MB gz; ${Object.keys(lazy).length} on-demand files (${(lazyTotal / 1048576).toFixed(0)} MB); latest tree ${latest}`);
+console.log(`${game}: ${compiled ? `${compiled} Lua files as bytecode; ` : ""}core ${index.length} files, ${(raw.length / 1048576).toFixed(1)} MB -> ${(gz.length / 1048576).toFixed(1)} MB gz; ${Object.keys(lazy).length} on-demand files (${(lazyTotal / 1048576).toFixed(0)} MB); latest tree ${latest}`);

@@ -12,7 +12,7 @@ emcc -O3 -DLUA_COMPAT_ALL -DLUA_USE_POSIX -Ivendor/lua -Ivendor/zlib \
   -sENVIRONMENT=worker,node -sFORCE_FILESYSTEM=1 \
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=268435456 -sMAXIMUM_MEMORY=2147483648 \
   -sTOTAL_STACK=16777216 \
-  -sEXPORTED_FUNCTIONS=_pob_init,_pob_call,_pob_eval,_pob_uptime,_malloc,_free \
+  -sEXPORTED_FUNCTIONS=_pob_init,_pob_call,_pob_eval,_pob_uptime,_pob_compile,_malloc,_free \
   -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,FS,UTF8ToString,stringToUTF8,lengthBytesUTF8 \
   -sINVOKE_RUN=0 -sEXIT_RUNTIME=0
 ls -la build/wasm

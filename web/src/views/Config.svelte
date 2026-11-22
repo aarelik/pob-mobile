@@ -4,6 +4,7 @@
 	import Icon from "../components/Icon.svelte";
 	import PobText from "../components/PobText.svelte";
 	import SetPicker from "../components/SetPicker.svelte";
+	import CustomMods from "../components/CustomMods.svelte";
 	import type { ConfigOption, ConfigState } from "../engine/types";
 	import { app } from "../lib/app.svelte";
 	import { stripPobText } from "../lib/pobtext";
@@ -12,6 +13,12 @@
 	let visible = $state<Record<string, boolean>>({});
 	let cfg = $state<ConfigState>({ config: {}, placeholder: {} });
 	let query = $state("");
+	$effect(() => {
+		if (app.configQuery != null) {
+			query = app.configQuery;
+			app.configQuery = null;
+		}
+	});
 	let showAll = $state(false);
 	let help = $state<string | null>(null);
 
@@ -111,6 +118,7 @@
 		</div>
 	{/each}
 	{#if !sections.length && options.length}<p class="muted center">No options match.</p>{/if}
+	{#if !query.trim()}<CustomMods />{/if}
 </div>
 
 <style>

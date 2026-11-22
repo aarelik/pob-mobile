@@ -28,6 +28,9 @@ class App {
 	saved = $state<SavedBuild[]>([]);
 	/** A slot for the Items tab to open (set by the tree's jewel button). */
 	openSlot = $state<string | null>(null);
+	/** A passive for the Tree tab to centre on, and a query for the Config tab (from search). */
+	focusNode = $state<number | null>(null);
+	configQuery = $state<string | null>(null);
 	canUndo = $state(false);
 	canRedo = $state(false);
 

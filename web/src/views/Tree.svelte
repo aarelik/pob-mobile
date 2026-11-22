@@ -4,8 +4,9 @@
 	import Icon from "../components/Icon.svelte";
 	import PobText from "../components/PobText.svelte";
 	import SetPicker from "../components/SetPicker.svelte";
+	import Sheet from "../components/Sheet.svelte";
 	import { app } from "../lib/app.svelte";
-	import { draw, drawArt, TreeModel, type ArtContext, type TreeJewel, type Highlight, type TreeState, type View } from "../lib/tree";
+	import { draw, drawArt, TreeModel, type ArtContext, type PowerMap, type TreeJewel, type Highlight, type TreeState, type View } from "../lib/tree";
 	import type { ArtState } from "../lib/tree-art";
 	import { treeData } from "../lib/tree-cache";
 	import type { TooltipLine } from "../engine/types";
@@ -42,6 +43,97 @@
 	let hitIndex = 0;
 	let choosingMastery = $state(false);
 	let jewels = $state<TreeJewel[]>([]);
+
+	// --- node power (PoB's heat map and power report) ---------------------------
+	interface PowerResult extends PowerMap {
+		label: string;
+		report: { id: number; name: string; powerStr: string; power: number; pathDist: number | null; allocated: boolean; type: string | null }[];
+	}
+	let powerOpen = $state(false);
+	let powerStats = $state<{ stat: string | null; label: string }[]>([]);
+	let powerStat = $state<string | null>(null);
+	let powerDepth = $state<number | null>(5);
+	let power = $state<PowerResult | null>(null);
+	let powerRev = -1;
+	let powerRunning = $state(false);
+	let powerProgress = $state(0);
+	let powerCancel = false;
+	const powerShown = $derived(!!power && powerRev === app.rev);
+	// Best passives to take: PoB's power report for a single stat; for the
+	// Offence/Defence view, the nodes ranked by both shares together.
+	const powerList = $derived.by(() => {
+		if (!power || !model) return [];
+		const byId = new Map(power.report.map((r) => [r.id, r]));
+		const out: { id: number; name: string; text: string; score: number; dist: number | null }[] = [];
+		for (const [key, v] of Object.entries(power.nodes)) {
+			const id = Number(key);
+			const n = model.nodes.get(id);
+			if (!n || alloc.has(id) || n.t === 5) continue;
+			const rep = byId.get(id);
+			if (power.stat) {
+				const val = v.s ?? 0;
+				if (val <= 0) continue;
+				out.push({ id, name: n.n ?? rep?.name ?? String(id), text: rep?.powerStr ?? `+${fmtNum(val)}`, score: val, dist: rep?.pathDist ?? null });
+			} else {
+				const o = Math.max(0, v.o ?? 0), d = Math.max(0, v.d ?? 0);
+				const score = (power.max.offence ? o / power.max.offence : 0) + (power.max.defence ? d / power.max.defence : 0);
+				if (score <= 0) continue;
+				const parts = [o > 0 ? `^xE05030+${(o * 100).toFixed(1)}% dmg` : "", d > 0 ? `^x7070FF+${(d * 100).toFixed(1)}% def` : ""].filter(Boolean);
+				out.push({ id, name: n.n ?? String(id), text: parts.join("^7 · "), score, dist: rep?.pathDist ?? null });
+			}
+		}
+		return out.sort((a, b) => b.score - a.score).slice(0, 40);
+	});
+	const fmtNum = (x: number) => (Math.abs(x) >= 100 ? Math.round(x).toLocaleString() : x.toFixed(1));
+	async function openPower() {
+		powerOpen = true;
+		if (!powerStats.length) powerStats = (await app.call<{ stats: typeof powerStats }>("power_stats")).stats;
+	}
+	async function runPower() {
+		powerRunning = true;
+		powerCancel = false;
+		powerProgress = 0;
+		powerOpen = false;
+		try {
+			let r = await app.call<{ done: boolean; progress: number }>("tree_power_start", { stat: powerStat ?? undefined, maxDepth: powerDepth ?? undefined });
+			while (!r.done && !powerCancel) {
+				r = await app.call<{ done: boolean; progress: number }>("tree_power_step", { budgetMs: 250 });
+				powerProgress = r.progress;
+			}
+			if (powerCancel) return;
+			power = await app.call<PowerResult>("tree_power_result");
+			powerRev = app.rev;
+			if (artCtx) artCtx.power = power;
+			redraw();
+			powerOpen = true;
+		} catch (e) {
+			app.notify(e instanceof Error ? e.message : String(e), "error");
+		} finally {
+			powerRunning = false;
+		}
+	}
+	function hidePower() {
+		power = null;
+		if (artCtx) artCtx.power = null;
+		redraw();
+	}
+	$effect(() => {
+		const id = app.focusNode;
+		if (id == null || !model || !w) return;
+		app.focusNode = null;
+		const n = model.nodes.get(id);
+		if (!n) return;
+		view = { cx: n.x, cy: n.y, scale: Math.max(view.scale, 0.3) };
+		framedFor = `${app.build?.generation}:${tstate?.treeVersion}`;
+		select(id, true);
+	});
+	function goTo(id: number) {
+		const n = model?.nodes.get(id);
+		if (!n) return;
+		powerOpen = false;
+		view = { cx: n.x, cy: n.y, scale: Math.max(view.scale, 0.3) };
+		select(id, true);
+	}
 	function socketJewel(id: number) {
 		app.openSlot = `Jewel ${id}`;
 		app.tab = "items";
@@ -63,7 +155,7 @@
 			void entry.store.preload(entry.art.images);
 			model = new TreeModel(entry.geo, st.dynamicNodes);
 			tstate = st;
-			artCtx = { art: entry.art, store: entry.store, state: artState, jewels: tj.jewels };
+			artCtx = { art: entry.art, store: entry.store, state: artState, jewels: tj.jewels, power: powerRev === app.rev ? power : null };
 			alloc = new Set([...st.allocatedNodes, ...st.dynamicNodes.filter((d) => d.allocated).map((d) => d.id)]);
 			const key = `${app.build?.generation}:${st.treeVersion}`;
 			if (framedFor !== key && w) {
@@ -311,6 +403,13 @@
 </script>
 
 <div class="tree">
+	{#if powerRunning}
+		<div class="pbar" role="progressbar" aria-valuenow={powerProgress}>
+			<span style:width={`${Math.round(powerProgress)}%`}></span>
+			<em>Calculating node power… {Math.round(powerProgress)}%</em>
+			<button class="link" onclick={() => (powerCancel = true)}>Stop</button>
+		</div>
+	{/if}
 	<div class="bar">
 		{#if tstate}
 			<span class="pts num" class:over={tstate.passivePointsSpent > tstate.pointsAvailableMax}>
@@ -318,7 +417,8 @@
 			</span>
 			<span class="pts num asc">{tstate.ascendancyPointsUsed}<span class="muted">/{tstate.ascendancyPointsAvailable}</span></span>
 		{/if}
-		<span class="spacer"><SetPicker kind="spec" label="Tree" /></span>
+		<span class="spacer"><SetPicker kind="spec" label="" /></span>
+		<button class="icon-btn" class:lit={powerShown} aria-label="Node power" onclick={openPower}><Icon name="stats" size={20} /></button>
 		<button class="icon-btn" aria-label="Search the tree" onclick={() => (searchOpen = !searchOpen)}><Icon name="search" size={20} /></button>
 		<button class="icon-btn" aria-label="Show my tree" onclick={fit}><Icon name="fit" size={20} /></button>
 		<button class="icon-btn" aria-label="Reset tree" onclick={reset}><Icon name="trash" size={20} /></button>
@@ -392,7 +492,96 @@
 	{/if}
 </div>
 
+<Sheet bind:open={powerOpen} title="Node power">
+	<p class="muted small">Path of Building works out what each passive you don't have would add, and colours the tree by it: red for damage, blue for defence.</p>
+	<h3 class="eyebrow">Measure</h3>
+	<select class="field" value={powerStat ?? ""} onchange={(e) => (powerStat = (e.currentTarget as HTMLSelectElement).value || null)}>
+		{#each powerStats as ps (ps.label)}<option value={ps.stat ?? ""}>{ps.label}</option>{/each}
+	</select>
+	<h3 class="eyebrow">Up to how many points away</h3>
+	<div class="chips">
+		{#each [3, 5, 10, null] as d (String(d))}
+			<button class="chip" class:on={powerDepth === d} onclick={() => (powerDepth = d)}>{d ?? "All"}</button>
+		{/each}
+	</div>
+	<p class="muted small">Further takes longer: about a minute for the whole tree on a fast phone.</p>
+	<div class="pact">
+		<button class="btn primary" disabled={powerRunning} onclick={runPower}>{powerShown ? "Recalculate" : "Calculate"}</button>
+		{#if powerShown}<button class="btn" onclick={hidePower}>Hide heat map</button>{/if}
+	</div>
+	{#if power && powerShown}
+		<h3 class="eyebrow">Best passives for {power.label}</h3>
+		<div class="list card">
+			{#each powerList as r (r.id)}
+				<button class="rowbtn" onclick={() => goTo(r.id)}>
+					<span class="grow"><span>{r.name}</span>{#if r.dist}<span class="muted tiny">{r.dist} point{r.dist === 1 ? "" : "s"} away</span>{/if}</span>
+					<span class="num pw"><PobText text={r.text} /></span>
+				</button>
+			{:else}
+				<p class="muted small">No unallocated passive within reach adds to this.</p>
+			{/each}
+		</div>
+	{:else if power && !powerShown}
+		<p class="muted small">The build changed since the last calculation.</p>
+	{/if}
+</Sheet>
+
 <style>
+	.pbar {
+		position: relative;
+		height: 26px;
+		background: var(--bg-1);
+		border-bottom: 1px solid var(--line-0);
+		display: flex;
+		align-items: center;
+		padding: 0 12px;
+		font-size: 12px;
+		flex: none;
+	}
+	.pbar span {
+		position: absolute;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		background: color-mix(in oklab, var(--c-life) 35%, transparent);
+	}
+	.pbar em {
+		position: relative;
+		font-style: normal;
+		flex: 1;
+	}
+	.pbar .link,
+	.link {
+		position: relative;
+		border: 0;
+		background: none;
+		color: var(--focus);
+	}
+	.lit {
+		color: var(--c-life);
+	}
+	.pact {
+		display: flex;
+		gap: 8px;
+		margin: 12px 0;
+	}
+	.pact .btn {
+		flex: 1;
+	}
+	.tiny {
+		display: block;
+		font-size: 11px;
+	}
+	.grow {
+		flex: 1;
+		min-width: 0;
+	}
+	.pw {
+		font-size: 13px;
+	}
+	h3.eyebrow {
+		margin: 14px 0 6px;
+	}
 	.jewel {
 		display: flex;
 		align-items: center;

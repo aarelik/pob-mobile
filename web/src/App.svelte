@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BuildSearch from "./components/BuildSearch.svelte";
 	import Icon from "./components/Icon.svelte";
 	import Sheet from "./components/Sheet.svelte";
 	import StatStrip from "./components/StatStrip.svelte";
@@ -25,6 +26,7 @@
 	];
 
 	let shareOpen = $state(false);
+	let searchOpen = $state(false);
 	let code = $state("");
 	let renameOpen = $state(false);
 	let newName = $state("");
@@ -97,6 +99,7 @@
 				<span class="name">{b.name}</span>
 				<span class="sub">{b.ascendClassName || b.className} · Level {b.level}{app.saving ? " · saving…" : ""}</span>
 			</button>
+			<button class="icon-btn" aria-label="Search this build" onclick={() => (searchOpen = true)}><Icon name="search" /></button>
 			<button class="icon-btn" aria-label="Undo" disabled={!app.canUndo} onclick={() => app.undo()}><Icon name="undo" /></button>
 			<button class="icon-btn" aria-label="Redo" disabled={!app.canRedo} onclick={() => app.undo(true)}><Icon name="redo" /></button>
 			<button class="icon-btn" aria-label="Share build code" onclick={openShare}><Icon name="share" /></button>
@@ -151,6 +154,8 @@
 	<h3 class="eyebrow sh">File</h3>
 	<button class="btn block" onclick={saveXml}><Icon name="import" size={18} /> Download .xml for desktop Path of Building</button>
 </Sheet>
+
+<BuildSearch bind:open={searchOpen} />
 
 <Sheet bind:open={renameOpen} title="Rename build">
 	<input class="field" bind:value={newName} onkeydown={(e) => e.key === "Enter" && rename()} />

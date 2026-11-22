@@ -294,11 +294,19 @@ export interface TreeJewel {
 	allocated: boolean;
 }
 
+export interface PowerMap {
+	/** null: PoB's Offence/Defence heat map; otherwise one stat. */
+	stat: string | null;
+	nodes: Record<string, { s?: number | null; o?: number | null; d?: number | null }>;
+	max: { singleStat: number; offence: number; defence: number };
+}
+
 export interface ArtContext {
 	store: ArtStore;
 	art: TreeArt;
 	state: ArtState;
 	jewels?: TreeJewel[];
+	power?: PowerMap | null;
 }
 
 export function drawArt(
@@ -480,6 +488,38 @@ export function drawArt(
 		const drewBase = drawSprite(ctx, store, art, base, x, y, s);
 		const drewOverlay = drawSprite(ctx, store, art, assetSprite(art, overlay), x, y, s);
 		if (!drewBase && !drewOverlay && n.t !== 5) fallbackNode(ctx, n, x, y, s, isAlloc);
+	}
+
+	// Node power, as PoB's heat map colours it: red for offence (or the chosen
+	// stat), blue for defence, stronger for more.
+	const pw = a.power;
+	if (pw) {
+		ctx.save();
+		ctx.globalCompositeOperation = "lighter";
+		for (const n of model.nodes.values()) {
+			if (alloc.has(n.id) || n.t === 5 || !inView(n.x, n.y)) continue;
+			const p = pw.nodes[n.id];
+			if (!p) continue;
+			let r = 0, b = 0;
+			if (pw.stat) r = pw.max.singleStat > 0 ? Math.max(0, p.s ?? 0) / pw.max.singleStat : 0;
+			else {
+				r = pw.max.offence > 0 ? Math.max(0, p.o ?? 0) / pw.max.offence : 0;
+				b = pw.max.defence > 0 ? Math.max(0, p.d ?? 0) / pw.max.defence : 0;
+			}
+			if (r < 0.03 && b < 0.03) continue;
+			r = Math.sqrt(Math.min(1, r));
+			b = Math.sqrt(Math.min(1, b));
+			const rad = Math.max(4, (RADIUS[n.t] + 34) * s);
+			const g = ctx.createRadialGradient(X(n.x), Y(n.y), rad * 0.2, X(n.x), Y(n.y), rad);
+			const col = `${Math.round(255 * r)},${Math.round(60 * Math.min(r, b))},${Math.round(255 * b)}`;
+			g.addColorStop(0, `rgba(${col},0.85)`);
+			g.addColorStop(1, `rgba(${col},0)`);
+			ctx.fillStyle = g;
+			ctx.beginPath();
+			ctx.arc(X(n.x), Y(n.y), rad, 0, Math.PI * 2);
+			ctx.fill();
+		}
+		ctx.restore();
 	}
 
 	// Search hits and the selected node

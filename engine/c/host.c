@@ -25,6 +25,12 @@
 #include "lua.h"
 #include "lualib.h"
 #include "zlib.h"
+#ifndef POB_LUAJIT
+/* Lua internals, for luaU_dump with stripping (pob_compile). */
+#include "lobject.h"
+#include "lstate.h"
+#include "lundump.h"
+#endif
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -843,6 +849,56 @@ EXPORT const char *pob_eval(const char *code) {
 	}
 	lua_settop(L, top);
 	return result.p;
+}
+
+/* Precompiles a Lua file to bytecode with this build's own parser (so the
+ * new LuaJIT syntax is accepted and the bytecode matches this VM's sizes).
+ * A leading '#' line is commented out, as loadfile would skip it. Returns ""
+ * on success, else the error. Used by scripts/pack-pob.mjs under Node. */
+static int dump_writer(lua_State *Ls, const void *p, size_t sz, void *ud) {
+	(void)Ls;
+	return fwrite(p, 1, sz, (FILE *)ud) == sz ? 0 : 1;
+}
+EXPORT const char *pob_compile(const char *in_path, const char *out_path, const char *chunkname, int strip) {
+	static char err[1024];
+	err[0] = 0;
+	FILE *f = fopen(in_path, "rb");
+	if (!f) return "cannot open input";
+	fseek(f, 0, SEEK_END);
+	long n = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char *src = malloc((size_t)n + 2);
+	size_t got = fread(src, 1, (size_t)n, f);
+	fclose(f);
+	const char *code = src;
+	size_t len = got;
+	if (len && src[0] == '#') {
+		/* "--" over the first two characters' worth: keep line numbers. */
+		memmove(src + 2, src, len);
+		src[0] = '-';
+		src[1] = '-';
+		len += 2;
+	}
+	lua_State *C = luaL_newstate();
+	if (luaL_loadbuffer(C, code, len, chunkname) != LUA_OK) {
+		snprintf(err, sizeof err, "%s", lua_tostring(C, -1));
+	} else {
+		FILE *o = fopen(out_path, "wb");
+		if (!o) snprintf(err, sizeof err, "cannot open output");
+		else {
+#ifdef POB_LUAJIT
+			(void)strip;
+			if (lua_dump(C, dump_writer, o) != 0) snprintf(err, sizeof err, "dump failed");
+#else
+			/* lua_dump without debug info when asked: data tables need no line numbers. */
+			if (luaU_dump(C, getproto(C->top - 1), dump_writer, o, strip) != 0) snprintf(err, sizeof err, "dump failed");
+#endif
+			fclose(o);
+		}
+	}
+	lua_close(C);
+	free(src);
+	return err;
 }
 
 #ifndef __EMSCRIPTEN__
