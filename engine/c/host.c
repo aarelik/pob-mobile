@@ -745,6 +745,23 @@ EXPORT const char *pob_init(const char *pob_root, const char *user_dir, const ch
 		buf_puts(&result, "bridge.lua did not return a method table");
 		return result.p;
 	}
+	/* pob-mobile's own methods, added to the same table */
+	{
+		char path[4096];
+		snprintf(path, sizeof path, "%s/mobile.lua", engine_dir);
+		lua_pushcfunction(L, traceback);
+		int tb = lua_gettop(L);
+		if (luaL_loadfile(L, path) != LUA_OK) {
+			buf_puts(&result, lua_tostring(L, -1));
+			return result.p;
+		}
+		lua_pushvalue(L, -3); /* the method table */
+		if (lua_pcall(L, 1, 0, tb) != LUA_OK) {
+			buf_puts(&result, lua_tostring(L, -1));
+			return result.p;
+		}
+		lua_pop(L, 1);
+	}
 	methods_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	return NULL;
 }

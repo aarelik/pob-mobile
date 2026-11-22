@@ -3,7 +3,7 @@ import { EngineClient, type Progress } from "../engine/client";
 import type { BuildInfo, BuildSummary } from "../engine/types";
 import { deleteBuild, getBuild, lastBuildId, listBuilds, newId, putBuild, type SavedBuild } from "./storage";
 
-export type Tab = "overview" | "skills" | "items" | "config" | "stats" | "notes";
+export type Tab = "overview" | "tree" | "skills" | "items" | "config" | "stats" | "notes";
 export type Screen = "builds" | "build";
 
 class App {

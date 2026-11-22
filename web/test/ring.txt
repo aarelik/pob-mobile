@@ -1,0 +1,16 @@
+Item Class: Rings
+Rarity: Rare
+Doom Loop
+Two-Stone Ring
+--------
+Requirements:
+Level: 75
+--------
+Item Level: 84
+--------
++12% to Fire and Lightning Resistances (implicit)
+--------
++68 to maximum Life
++41% to Cold Resistance
++38% to Lightning Resistance
++29 to Strength

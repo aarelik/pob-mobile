@@ -35,6 +35,8 @@ make -C engine build/pobhost build/pobhost-luajit LUAJIT=/path/to/LuaJIT   # Lua
 node engine/test/diff.mjs pob/poe1 path/to/*.xml
 node engine/test/wasm-smoke.mjs path/to/*.xml        # the WebAssembly engine in Node
 python3 web/test/mobile.py http://localhost:4173/ code.txt   # phone-viewport end-to-end run
+python3 web/test/tree.py  http://localhost:4173/ code.txt    # passive tree
+python3 web/test/items.py http://localhost:4173/ code.txt web/test/ring.txt   # item editing
 ```
 
 ## Building
@@ -57,12 +59,15 @@ To move to a newer upstream: check out the new commit, update `pob.json`, run `.
 
 ## Status
 
-Working: boot with progress and offline cache, build list (IndexedDB), import from code / XML / pobb.in link,
+Working: passive tree (pinch/pan, tap a node for its stats and what allocating it changes, allocate and
+remove, masteries, search, undo/redo, reset, cluster jewel nodes), item editing (paste from the game, uniques and
+templates from PoB's database with variants, swap between the build's items, edit as text, unequip, delete,
+flask toggles), boot with progress and offline cache, build list (IndexedDB), import from code / XML / pobb.in link,
 new build, offline use and home-screen install, class and ascendancy, level, main skill, overview stats, skills (enable, level, quality, Full DPS,
 gem tooltips), items with PoB's tooltips and stat comparisons, configuration with PoB's visibility rules and
 search, the full calcs sidebar with breakdowns, notes, sharing a build code.
 
-Next: passive tree view (touch pan/zoom canvas), item editing and crafting, skill/gem editing, calcs tab sections,
+Next: crafting rares from a base with an affix picker, skill/gem editing (add/remove gems and groups), calcs tab sections,
 item and skill sets, PoB Redux themes.
 
 ## Licences

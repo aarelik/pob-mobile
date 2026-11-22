@@ -11,9 +11,11 @@
 	import Overview from "./views/Overview.svelte";
 	import Skills from "./views/Skills.svelte";
 	import Stats from "./views/Stats.svelte";
+	import Tree from "./views/Tree.svelte";
 
 	const TABS: { id: Tab; label: string; icon: string }[] = [
 		{ id: "overview", label: "Overview", icon: "overview" },
+		{ id: "tree", label: "Tree", icon: "tree" },
 		{ id: "skills", label: "Skills", icon: "skills" },
 		{ id: "items", label: "Items", icon: "items" },
 		{ id: "config", label: "Config", icon: "config" },
@@ -78,8 +80,9 @@
 			<button class="icon-btn" aria-label="Share build code" onclick={openShare}><Icon name="share" /></button>
 		</header>
 		<StatStrip />
-		<main class="scroll" bind:this={scroller}>
+		<main class="scroll" class:fixed={app.tab === "tree"} bind:this={scroller}>
 			{#if app.tab === "overview"}<Overview />
+			{:else if app.tab === "tree"}<Tree />
 			{:else if app.tab === "skills"}<Skills />
 			{:else if app.tab === "items"}<Items />
 			{:else if app.tab === "config"}<Config />
@@ -165,9 +168,12 @@
 	main {
 		min-height: 0;
 	}
+	main.fixed {
+		overflow: hidden;
+	}
 	nav {
 		display: grid;
-		grid-template-columns: repeat(5, 1fr);
+		grid-template-columns: repeat(6, 1fr);
 		border-top: 1px solid var(--line-0);
 		background: var(--bg-1);
 		padding-bottom: var(--safe-bottom);
