@@ -10,7 +10,8 @@ number is Path of Building's. The interface takes its design language from [PoB 
 upstream PathOfBuilding (pinned in pob.json)
         │  scripts/sync-pob.mjs      stage src/ + runtime/lua as an installed release
         ▼
-pob/poe1/  ──── scripts/pack-pob.mjs ───►  web/public/pob/poe1/core-<hash>.pack   (5 MB gzip, read at boot)
+pob/poe1/  ──── scripts/pack-pob.mjs ───►  web/public/pob/poe1/core-<hash>.pack   (7 MB gzip, read at boot;
+                                                                                  Lua precompiled to bytecode)
 upstream TreeData images ─ pack-art.mjs ─► web/public/pob/poe1/art/<hash>.webp    (tree art, fetched per tree version)
                                            web/public/pob/poe1/files/…            (old trees, timeless data: on demand)
 engine/
@@ -20,6 +21,7 @@ engine/
   c/host.c        SimpleGraphic host functions (zlib, fs, time, sync HTTP) and a JSON call API
   lua/host.lua    headless SimpleGraphic globals        ┐ from PoB Redux (MIT), unchanged
   lua/bridge.lua  JSON methods over PoB's live state    ┘
+  lua/mobile.lua  pob-mobile's additions: tree geometry and art, build-wide undo, set fixes
   build-wasm.sh   Emscripten build → pob-engine.mjs/.wasm
 web/              Svelte 5 app; src/engine/worker.ts boots the engine, client.ts calls it
 ```
@@ -38,6 +40,7 @@ node engine/test/wasm-smoke.mjs path/to/*.xml        # the WebAssembly engine in
 python3 web/test/mobile.py http://localhost:4173/ code.txt   # phone-viewport end-to-end run
 python3 web/test/tree.py  http://localhost:4173/ code.txt    # passive tree
 python3 web/test/items.py http://localhost:4173/ code.txt web/test/ring.txt   # item editing
+python3 web/test/skills.py  …  craft.py  …  misc.py  …  analysis.py …   # gems, crafting, undo/sets/backup, calcs/compare/power
 ```
 
 ## Building
@@ -56,20 +59,31 @@ cd web && npx vite preview     # serve it locally
 commit itself) and publishes to Pages. One-time setup: Settings → Pages → Source: **GitHub Actions**. On a phone,
 open the site and choose "Install app" / "Add to Home Screen"; it then works offline (`web/public/sw.js`).
 
-To move to a newer upstream: check out the new commit, update `pob.json`, run `./build.sh`, then the differential test.
+`.github/workflows/upstream.yml` checks daily for a new Path of Building release; when there is one it pins it in
+`pob.json` and redeploys. The deploy smoke-tests the new engine first, so a release that breaks it leaves the site
+on the previous version. To move by hand: update the commit in `pob.json` and push.
 
-## Status
+### Relay (optional)
 
-Working: passive tree drawn with Path of Exile's art the way PoB draws it (pinch/pan, tap a node for its stats and what allocating it changes, allocate and
-remove, masteries, search, undo/redo, reset, cluster jewel nodes), item editing (paste from the game, uniques and
-templates from PoB's database with variants, swap between the build's items, edit as text, unequip, delete,
-flask toggles), boot with progress and offline cache, build list (IndexedDB), import from code / XML / pobb.in link,
-new build, offline use and home-screen install, class and ascendancy, level, main skill, overview stats, skills (enable, level, quality, Full DPS,
-gem tooltips), items with PoB's tooltips and stat comparisons, configuration with PoB's visibility rules and
-search, the full calcs sidebar with breakdowns, notes, sharing a build code.
+Browsers can't read pathofexile.com or most build-sharing sites from another site (CORS). Pasting a build code
+always works; account import and poe.ninja / Maxroll / Mobalytics links need the small Cloudflare Worker in
+`relay/` (free, about five minutes to set up, see `relay/README.md`). Its URL goes in the app under Builds → Settings.
 
-Next: crafting rares from a base with an affix picker, skill/gem editing (add/remove gems and groups), calcs tab sections,
-item and skill sets, PoB Redux themes.
+## Features
+
+- **Passive tree** drawn with Path of Exile's art as PoB draws it: pinch, pan, tap for stats and what allocating
+  changes, masteries, cluster jewels, jewel radius rings, socketing jewels, timeless jewels, search, several trees per
+  build, node power heat map with the best passives to take.
+- **Skills**: socket groups and gems: add, remove, replace, reorder, level and quality, gem search ranked by DPS,
+  skill parts, stages, minions, skill sets.
+- **Items**: equip from the build, PoB's uniques and templates, or text copied from the game; craft normal, magic and
+  rare items from any base with PoB's affix tiers and rolls; quality, item level, influence, sockets, variants,
+  catalysts, enchants, anoints, corruption, crafted and custom mods; item sets.
+- **Config** with PoB's visibility rules, config sets, custom modifiers checked by PoB's parser.
+- **Calcs**: the sidebar with breakdowns, the full calculation grid, build comparison, Party tab.
+- Undo and redo for every change, search across the build, PoB Redux's themes.
+- Builds stay on the phone (IndexedDB): import codes, XML, links and characters from your account; share codes,
+  links and .xml for desktop PoB; back up and restore all builds. Works offline and installs to the home screen.
 
 ## Licences
 

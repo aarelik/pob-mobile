@@ -1,7 +1,7 @@
 // Offline support. The page and its hashed assets come from this cache when
 // the network is gone; the engine worker caches the PoB data pack itself.
 // Bump VERSION to drop old caches.
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL = `pob-mobile-shell-${VERSION}`;
 
 self.addEventListener("install", (event) => {
