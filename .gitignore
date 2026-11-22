@@ -7,3 +7,4 @@ web/public/engine/
 web/test/screens/
 web/node_modules/
 web/dist/
+upstream/

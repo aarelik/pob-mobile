@@ -5,3 +5,8 @@ import { app } from "./lib/app.svelte";
 
 mount(App, { target: document.getElementById("app")! });
 app.start();
+
+// Offline support and home-screen install (needs HTTPS, as on GitHub Pages).
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+	addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+}

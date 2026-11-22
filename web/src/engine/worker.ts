@@ -11,6 +11,9 @@ type Init = { type: "init"; root: string };
 let root = "";
 
 const CACHE = "pob-mobile-data-v1";
+// Keyed by URL; a new upstream version changes the files' contents, so the
+// size check in bootEngine drops a stale copy, and pack-pob changes nothing else.
+const LAZY_CACHE = "pob-mobile-files-v1";
 let engine: Awaited<ReturnType<typeof bootEngine>> | null = null;
 const queue: Req[] = [];
 
@@ -86,6 +89,7 @@ async function boot() {
 	const dataBase = new URL(`pob/${game}/`, root).href;
 	post({ type: "progress", phase: "manifest", loaded: 0, total: 1 });
 	const manifestUrl = new URL("manifest.json", dataBase).href;
+	// Offline, the service worker answers from its cache.
 	const manifest = await fetch(manifestUrl, { cache: "no-cache" })
 		.then((r) => r.json())
 		.catch((e) => {
@@ -100,13 +104,33 @@ async function boot() {
 	const core = await gunzip(packGz);
 	post({ type: "progress", phase: "boot", loaded: 0, total: 1 });
 	const { default: createPobEngine } = await import(/* @vite-ignore */ new URL("engine/pob-engine.mjs", root).href);
+	// Old tree versions and timeless data this device fetched before, so those builds open offline too.
+	const filesBase = new URL("files/", dataBase).href;
+	const prefetched = new Map<string, Uint8Array>();
+	let lazyCache: Cache | null = null;
+	try {
+		lazyCache = await caches.open(LAZY_CACHE);
+		for (const req of await lazyCache.keys()) {
+			if (!req.url.startsWith(filesBase)) continue;
+			const path = decodeURIComponent(req.url.slice(filesBase.length));
+			const res = await lazyCache.match(req);
+			if (res && path in manifest.lazy) prefetched.set(path, new Uint8Array(await res.arrayBuffer()));
+		}
+	} catch {
+		lazyCache = null;
+	}
 	engine = await bootEngine({
 		createPobEngine,
 		manifest,
 		core,
+		prefetched,
 		readLazy: (p: string) => {
 			post({ type: "lazy", path: p });
-			return readSync(new URL(`files/${p}`, dataBase).href);
+			const url = new URL(p, filesBase).href;
+			const bytes = readSync(url);
+			// Keep a copy; the engine reads synchronously, so storing happens in the background.
+			lazyCache?.put(url, new Response(bytes.slice())).catch(() => {});
+			return bytes;
 		},
 		moduleOptions: { wasmBinary: wasm },
 	});

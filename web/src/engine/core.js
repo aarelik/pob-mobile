@@ -28,6 +28,7 @@ function mkdirp(FS, dir) {
  * @param {object} o.manifest           manifest.json of the pack
  * @param {Uint8Array} o.core           unpacked core pack
  * @param {(path: string) => Uint8Array} o.readLazy  synchronously reads an on-demand file (sync XHR in the worker)
+ * @param {Map<string, Uint8Array>} [o.prefetched]  on-demand files already on hand (from an earlier visit)
  * @param {object} [o.moduleOptions]    extra Emscripten module options (locateFile, print...)
  */
 /** A MEMFS file whose bytes are read on first access. */
@@ -47,7 +48,7 @@ function createLazyFile(FS, dir, name, size, read) {
 	return node;
 }
 
-export async function bootEngine({ createPobEngine, manifest, core, readLazy, moduleOptions = {} }) {
+export async function bootEngine({ createPobEngine, manifest, core, readLazy, prefetched = new Map(), moduleOptions = {} }) {
 	const logs = [];
 	const mod = await createPobEngine({
 		print: (s) => logs.push(s),
@@ -65,7 +66,9 @@ export async function bootEngine({ createPobEngine, manifest, core, readLazy, mo
 		const full = `${root}/${path}`;
 		const dir = full.slice(0, full.lastIndexOf("/"));
 		mkdirp(FS, dir);
-		createLazyFile(FS, dir, full.slice(dir.length + 1), size, () => readLazy(path));
+		const have = prefetched.get(path);
+		if (have && have.length === size) FS.writeFile(full, have);
+		else createLazyFile(FS, dir, full.slice(dir.length + 1), size, () => readLazy(path));
 	}
 	mkdirp(FS, "/user");
 

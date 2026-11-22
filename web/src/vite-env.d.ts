@@ -6,6 +6,7 @@ declare module "./core.js" {
 		manifest: { lazy: Record<string, number> };
 		core: Uint8Array;
 		readLazy: (path: string) => Uint8Array;
+		prefetched?: Map<string, Uint8Array>;
 		moduleOptions?: object;
 	}): Promise<{ bootMs: number; call(method: string, params?: unknown): unknown; logs: string[] }>;
 }

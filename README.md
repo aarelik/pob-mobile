@@ -40,24 +40,30 @@ python3 web/test/mobile.py http://localhost:4173/ code.txt   # phone-viewport en
 ## Building
 
 Needs Node 22, a C compiler and Emscripten (tested with 3.1.6), and a clone of upstream PathOfBuilding at the
-commit in `pob.json` (path in `pob.json` → `source`).
+commit in `pob.json` (path in `pob.json` → `source`, default `upstream/PathOfBuilding`).
 
 ```sh
 ./build.sh                     # → web/dist, a static site
 cd web && npx vite preview     # serve it locally
 ```
 
+### GitHub Pages
+
+`.github/workflows/deploy.yml` builds everything on each push to `main` (it checks out upstream PoB at the pinned
+commit itself) and publishes to Pages. One-time setup: Settings → Pages → Source: **GitHub Actions**. On a phone,
+open the site and choose "Install app" / "Add to Home Screen"; it then works offline (`web/public/sw.js`).
+
 To move to a newer upstream: check out the new commit, update `pob.json`, run `./build.sh`, then the differential test.
 
 ## Status
 
 Working: boot with progress and offline cache, build list (IndexedDB), import from code / XML / pobb.in link,
-new build, class and ascendancy, level, main skill, overview stats, skills (enable, level, quality, Full DPS,
+new build, offline use and home-screen install, class and ascendancy, level, main skill, overview stats, skills (enable, level, quality, Full DPS,
 gem tooltips), items with PoB's tooltips and stat comparisons, configuration with PoB's visibility rules and
 search, the full calcs sidebar with breakdowns, notes, sharing a build code.
 
 Next: passive tree view (touch pan/zoom canvas), item editing and crafting, skill/gem editing, calcs tab sections,
-item and skill sets, PWA offline install, PoB Redux themes.
+item and skill sets, PoB Redux themes.
 
 ## Licences
 
