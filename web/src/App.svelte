@@ -3,6 +3,8 @@
 	import Sheet from "./components/Sheet.svelte";
 	import StatStrip from "./components/StatStrip.svelte";
 	import { app, type Tab } from "./lib/app.svelte";
+	import { downloadXml } from "./lib/backup";
+	import { UPLOADS, uploadBuild } from "./lib/net";
 	import Boot from "./views/Boot.svelte";
 	import Builds from "./views/Builds.svelte";
 	import Config from "./views/Config.svelte";
@@ -31,6 +33,7 @@
 	async function openShare() {
 		shareOpen = true;
 		code = "";
+		link = "";
 		code = await app.exportCode();
 	}
 	async function copyCode() {
@@ -47,6 +50,23 @@
 		} catch {
 			/* dismissed */
 		}
+	}
+	let link = $state("");
+	let linking = $state(false);
+	async function makeLink(target: (typeof UPLOADS)[number]) {
+		linking = true;
+		link = "";
+		try {
+			link = await uploadBuild(target, code);
+		} catch (e) {
+			app.notify(e instanceof Error ? e.message : String(e), "error");
+		} finally {
+			linking = false;
+		}
+	}
+	async function saveXml() {
+		const { xml } = await app.call<{ xml: string }>("save_build_xml");
+		downloadXml(app.build?.name ?? "build", xml);
 	}
 	async function rename() {
 		const name = newName.trim();
@@ -77,6 +97,8 @@
 				<span class="name">{b.name}</span>
 				<span class="sub">{b.ascendClassName || b.className} · Level {b.level}{app.saving ? " · saving…" : ""}</span>
 			</button>
+			<button class="icon-btn" aria-label="Undo" disabled={!app.canUndo} onclick={() => app.undo()}><Icon name="undo" /></button>
+			<button class="icon-btn" aria-label="Redo" disabled={!app.canRedo} onclick={() => app.undo(true)}><Icon name="redo" /></button>
 			<button class="icon-btn" aria-label="Share build code" onclick={openShare}><Icon name="share" /></button>
 		</header>
 		<StatStrip />
@@ -114,6 +136,20 @@
 		<button class="btn" onclick={copyCode} disabled={!code}><Icon name="copy" size={18} /> Copy</button>
 		{#if "share" in navigator}<button class="btn primary" onclick={shareCode} disabled={!code}><Icon name="share" size={18} /> Share</button>{/if}
 	</div>
+	<h3 class="eyebrow sh">Link</h3>
+	<div class="chips">
+		{#each UPLOADS as u (u.label)}
+			<button class="chip" disabled={!code || linking} onclick={() => makeLink(u)}>Upload to {u.label}</button>
+		{/each}
+	</div>
+	{#if link}
+		<div class="linkrow">
+			<a href={link} target="_blank" rel="noopener">{link}</a>
+			<button class="icon-btn" aria-label="Copy link" onclick={() => navigator.clipboard.writeText(link).then(() => app.notify("Link copied"))}><Icon name="copy" size={18} /></button>
+		</div>
+	{/if}
+	<h3 class="eyebrow sh">File</h3>
+	<button class="btn block" onclick={saveXml}><Icon name="import" size={18} /> Download .xml for desktop Path of Building</button>
 </Sheet>
 
 <Sheet bind:open={renameOpen} title="Rename build">
@@ -125,6 +161,21 @@
 </Sheet>
 
 <style>
+	.sh {
+		margin: 16px 0 8px;
+	}
+	.linkrow {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-top: 8px;
+		font-size: 14px;
+		word-break: break-all;
+	}
+	.linkrow a {
+		color: var(--focus);
+		flex: 1;
+	}
 	.fill {
 		height: 100%;
 	}

@@ -1,6 +1,7 @@
 // App state: engine lifecycle, the open build, saving and importing.
 import { EngineClient, type Progress } from "../engine/client";
 import type { BuildInfo, BuildSummary } from "../engine/types";
+import { fetchBuildLink } from "./net";
 import { deleteBuild, getBuild, lastBuildId, listBuilds, newId, putBuild, type SavedBuild } from "./storage";
 
 export type Tab = "overview" | "tree" | "skills" | "items" | "config" | "stats" | "notes";
@@ -27,6 +28,8 @@ class App {
 	saved = $state<SavedBuild[]>([]);
 	/** A slot for the Items tab to open (set by the tree's jewel button). */
 	openSlot = $state<string | null>(null);
+	canUndo = $state(false);
+	canRedo = $state(false);
 
 	engine!: EngineClient;
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -72,13 +75,31 @@ class App {
 	async mutate<T>(method: string, params?: unknown): Promise<T> {
 		this.busy++;
 		try {
-			const r = await this.engine.call<T>(method, params);
+			const r = await this.engine.call<T>("mutate", { method, params: params ?? {} });
+			this.canUndo = true;
+			this.canRedo = false;
 			await this.refresh();
 			this.scheduleSave();
 			return r;
 		} catch (e) {
 			this.notify(e instanceof Error ? e.message : String(e), "error");
 			throw e;
+		} finally {
+			this.busy--;
+		}
+	}
+
+	/** Undoes (or redoes) the last change anywhere in the build. */
+	async undo(redo = false) {
+		this.busy++;
+		try {
+			const r = await this.engine.call<{ canUndo: boolean; canRedo: boolean }>("undo", { redo });
+			this.canUndo = r.canUndo;
+			this.canRedo = r.canRedo;
+			await this.refresh();
+			this.scheduleSave();
+		} catch (e) {
+			this.notify(e instanceof Error ? e.message : String(e), "error");
 		} finally {
 			this.busy--;
 		}
@@ -91,6 +112,8 @@ class App {
 
 	private async opened(info: BuildInfo, id: string, xmlForNew?: string) {
 		this.build = info;
+		this.canUndo = false;
+		this.canRedo = false;
 		this.currentId = id;
 		lastBuildId.set(id);
 		this.rev++;
@@ -126,7 +149,7 @@ class App {
 	async importBuild(input: string, name?: string) {
 		let text = input.trim();
 		if (!text) throw new Error("Paste a build code or link first.");
-		if (/^https?:\/\//i.test(text)) text = await fetchBuildLink(text);
+		if (/^(https?:\/\/)?(www\.)?(pobb\.in|poe\.ninja|maxroll\.gg|mobalytics\.gg|pob\.codes|pastebinp?\.com|rentry\.co|poedb\.tw|poe2db\.tw)\//i.test(text) || /^https?:\/\//i.test(text)) text = await fetchBuildLink(text);
 		this.busy++;
 		try {
 			let info: BuildInfo;
@@ -151,6 +174,22 @@ class App {
 		} finally {
 			this.busy--;
 		}
+	}
+
+	/** Imports a character from pathofexile.com data (see net.ts). */
+	async importCharacter(data: string, name: string) {
+		this.busy++;
+		try {
+			const info = await this.engine.call<BuildInfo>("import_character", { data, name });
+			await this.opened(info, newId(), "");
+		} finally {
+			this.busy--;
+		}
+	}
+
+	/** Re-imports the open build's tree and/or gear from the character data. */
+	async reimportCharacter(data: string, parts: { tree: boolean; gear: boolean }) {
+		await this.mutate("import_character_into", { data, ...parts, deleteJewels: parts.tree, deleteEquipment: parts.gear, deleteSkills: parts.gear });
 	}
 
 	scheduleSave() {
@@ -191,6 +230,10 @@ class App {
 		}
 	}
 
+	async reloadSaved() {
+		this.saved = await listBuilds();
+	}
+
 	async remove(id: string) {
 		await deleteBuild(id);
 		if (this.currentId === id) {
@@ -219,24 +262,6 @@ class App {
 
 function xmlName(xml: string): string | null {
 	return /<Build [^>]*\bbuildName="([^"]+)"/.exec(xml)?.[1] ?? null;
-}
-
-/** Turns a share link into a build code. Needs the site to allow cross-origin reads. */
-async function fetchBuildLink(url: string): Promise<string> {
-	const u = new URL(url);
-	let raw: string | null = null;
-	const id = u.pathname.split("/").filter(Boolean)[0];
-	if (/(^|\.)pobb\.in$/.test(u.hostname) && id) raw = `https://pobb.in/${id}/raw`;
-	else if (/(^|\.)pastebin\.com$/.test(u.hostname) && id) raw = `https://pastebin.com/raw/${id === "raw" ? u.pathname.split("/")[2] : id}`;
-	else if (/(^|\.)poe\.ninja$/.test(u.hostname)) raw = null;
-	if (!raw) throw new Error("This link type is not supported yet. Open it and copy the build code instead.");
-	try {
-		const res = await fetch(raw);
-		if (!res.ok) throw new Error(`HTTP ${res.status}`);
-		return (await res.text()).trim();
-	} catch {
-		throw new Error(`Could not read ${u.hostname} from the browser. Open the link, copy the build code and paste that.`);
-	}
 }
 
 export const app = new App();

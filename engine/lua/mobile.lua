@@ -294,3 +294,113 @@ M.tree_jewels = function()
 	end
 	return { jewels = out }
 end
+
+-- New item, skill and config sets as PoB's set list controls make them: the
+-- tab's New* call, then the title, then the set's place in the order list
+-- (the bridge's versions skip the last two, so the new set never shows).
+local function newSet(tab, newFn, orderKey, setActive, title)
+	local set = tab[newFn](tab)
+	set.title = (type(title) == "string" and title:match("%S")) and title or "New Set"
+	table.insert(tab[orderKey], set.id)
+	tab[setActive](tab, set.id)
+	tab.modFlag = true
+	return set
+end
+M.create_item_set = function(p)
+	local b = build()
+	newSet(b.itemsTab, "NewItemSet", "itemSetOrderList", "SetActiveItemSet", p and p.title)
+	b.itemsTab:AddUndoState()
+	M.refresh()
+	return M.list_item_sets()
+end
+M.create_skill_set = function(p)
+	local b = build()
+	newSet(b.skillsTab, "NewSkillSet", "skillSetOrderList", "SetActiveSkillSet", p and p.title)
+	b.skillsTab:AddUndoState()
+	M.refresh()
+	return M.get_skills()
+end
+M.create_config_set = function(p)
+	local b = build()
+	newSet(b.configTab, "NewConfigSet", "configSetOrderList", "SetActiveConfigSet", p and p.title)
+	M.refresh()
+	return M.get_config()
+end
+
+-- Build-wide undo. PoB keeps an undo stack per tab (Ctrl+Z undoes the tab
+-- you are on); the phone has one undo button for the whole build, so every
+-- change goes through `mutate`, which records each tab's own undo state
+-- (PoB's CreateUndoState) plus what no tab records: the active tree and
+-- config set and the character level.
+local undoStack, redoStack = {}, {}
+local UNDO_LIMIT = 40
+
+local function snapshot()
+	local b = build()
+	return {
+		specIndex = b.treeTab.activeSpec,
+		spec = b.spec:CreateUndoState(),
+		skills = b.skillsTab:CreateUndoState(),
+		items = b.itemsTab:CreateUndoState(),
+		configSet = b.configTab.activeConfigSetId,
+		config = b.configTab:CreateUndoState(),
+		level = b.characterLevel,
+		levelAuto = b.characterLevelAutoMode,
+		name = b.buildName,
+	}
+end
+
+local function restore(s)
+	local b = build()
+	if s.specIndex ~= b.treeTab.activeSpec and b.treeTab.specList[s.specIndex] then b.treeTab:SetActiveSpec(s.specIndex) end
+	-- Items first: the tree rebuilds cluster jewel nodes from the socketed jewels.
+	b.itemsTab:RestoreUndoState(s.items)
+	b.spec:RestoreUndoState(s.spec)
+	b.skillsTab:RestoreUndoState(s.skills)
+	if s.configSet ~= b.configTab.activeConfigSetId and b.configTab.configSets[s.configSet] then b.configTab:SetActiveConfigSet(s.configSet) end
+	b.configTab:RestoreUndoState(s.config)
+	b.characterLevel = s.level
+	b.characterLevelAutoMode = s.levelAuto
+	b.buildName = s.name
+	b.buildFlag = true
+	b.modFlag = true
+	M.refresh()
+end
+
+local function undoInfo()
+	return { canUndo = #undoStack > 0, canRedo = #redoStack > 0 }
+end
+
+M.mutate = function(p)
+	local fn = p and M[p.method]
+	if not fn then error("unknown method " .. tostring(p and p.method), 0) end
+	local before = snapshot()
+	local result = fn(p.params)
+	undoStack[#undoStack + 1] = before
+	if #undoStack > UNDO_LIMIT then table.remove(undoStack, 1) end
+	redoStack = {}
+	return result
+end
+
+M.undo = function(p)
+	local from, to = undoStack, redoStack
+	if p and p.redo then from, to = redoStack, undoStack end
+	local s = table.remove(from)
+	if not s then return undoInfo() end
+	to[#to + 1] = snapshot()
+	restore(s)
+	return undoInfo()
+end
+
+M.undo_state = undoInfo
+
+-- A different build means a fresh history.
+for _, name in ipairs({ "load_build_xml", "load_build_code", "load_build_file", "new_build", "rollback", "import_character", "import_game_build" }) do
+	local fn = M[name]
+	if fn then
+		M[name] = function(...)
+			undoStack, redoStack = {}, {}
+			return fn(...)
+		end
+	end
+end

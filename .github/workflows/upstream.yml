@@ -1,0 +1,48 @@
+# Follows Path of Building releases: once a day, if upstream has a release
+# newer than the commit pinned in pob.json, pins that release and redeploys.
+# The deploy's smoke test runs the new engine first; if it fails, the site
+# keeps the previous version and the failed run shows why.
+name: Follow upstream releases
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare the pin with the latest release
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          repo=$(jq -r '.poe1.repo' pob.json | sed 's#https://github.com/##')
+          pin=$(jq -r '.poe1.commit' pob.json)
+          tag=$(gh api "repos/$repo/releases/latest" --jq .tag_name)
+          sha=$(gh api "repos/$repo/commits/$tag" --jq .sha)
+          status=$(gh api "repos/$repo/compare/$pin...$sha" --jq .status)
+          echo "latest release $tag ($sha); pinned $pin; release is $status of the pin"
+          if [ "$status" = "ahead" ] || [ "$status" = "diverged" ]; then
+            echo "bump=yes" >> "$GITHUB_OUTPUT"
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Pin the release
+        if: steps.check.outputs.bump == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          jq --arg sha "${{ steps.check.outputs.sha }}" '.poe1.commit = $sha' pob.json > pob.json.new && mv pob.json.new pob.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Follow Path of Building ${{ steps.check.outputs.tag }}"
+          git push
+          # A push made with the workflow token starts no workflows; start the deploy directly.
+          gh workflow run deploy.yml --ref main

@@ -134,9 +134,9 @@ button {
 	background: var(--bg-active);
 }
 .btn.primary {
-	background: var(--fg-0);
-	color: var(--bg-0);
-	border-color: var(--fg-0);
+	background: var(--accent, var(--fg-0));
+	color: var(--accent-fg, var(--bg-0));
+	border-color: var(--accent, var(--fg-0));
 }
 .btn.primary:active {
 	background: var(--fg-1);
@@ -164,6 +164,10 @@ button {
 }
 .icon-btn:active {
 	background: var(--bg-active);
+}
+.icon-btn:disabled {
+	color: var(--fg-4);
+	opacity: 0.5;
 }
 
 /* Cards and lists */
@@ -322,4 +326,286 @@ label.stack {
 }
 .btn.danger {
 	color: var(--bad);
+}
+
+
+/* Themes from PoB Redux (MIT): same tokens, other palettes. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-0: oklch(98.5% 0.004 88);
+  --bg-1: oklch(95.8% 0.007 88);
+  --bg-2: oklch(93.1% 0.010 88);
+  --bg-3: oklch(90.4% 0.013 88);
+  --bg-hover: oklch(91.0% 0.011 88);
+  --bg-active: oklch(87.3% 0.014 88);
+
+  --line-0: oklch(90.8% 0.012 85);
+  --line-1: oklch(86.2% 0.015 85);
+  --line-2: oklch(79.7% 0.018 85);
+
+  --fg-0: oklch(22.0% 0.010 78);
+  --fg-1: oklch(37.1% 0.013 78);
+  --fg-2: oklch(42.3% 0.013 78);
+  --fg-3: oklch(45.8% 0.013 78);
+  --fg-4: oklch(57.4% 0.018 78);
+
+  --focus: oklch(47.0% 0.221 266);
+  --brand: oklch(52% 0.22 265);
+  --ok: oklch(44.5% 0.108 150);
+  --warn: oklch(45.8% 0.098 65);
+  --bad: oklch(47.4% 0.172 27);
+
+  --c-life: oklch(47.4% 0.172 27);
+  --c-mana: oklch(46.5% 0.169 264);
+  --c-es: oklch(44.5% 0.078 215);
+  --c-fire: oklch(46.6% 0.149 38);
+  --c-cold: oklch(45.5% 0.126 250);
+  --c-lightning: oklch(44.0% 0.092 103);
+  --c-chaos: oklch(47.7% 0.200 305);
+  --c-physical: oklch(44.0% 0.038 80);
+  --c-unique: oklch(46.0% 0.103 55);
+  --c-rare: oklch(45.5% 0.092 92);
+  --c-magic: oklch(47.5% 0.222 272);
+  --c-normal: oklch(37.1% 0.014 78);
+  --c-gem: oklch(44.0% 0.080 176);
+  --c-spirit: oklch(45.0% 0.088 80);
+  --c-currency: oklch(45.5% 0.087 68);
+  --c-author: oklch(44.0% 0.075 195);
+  --c-class: oklch(45.0% 0.150 262);
+
+  --accent: var(--fg-0);
+  --accent-fg: var(--bg-0);
+  --primary-hover: #000000;
+  /* Paper washes text out faster than near-black does, so the same recessed
+     look costs a faded control more of its ink here. */
+  --fade-off: 0.7;
+  --sel-mix: 24%;
+  /* PoB emits raw hex for mod text; on paper it needs deepening to stay legible. */
+  --pob-mix: 38%;
+  --backdrop: rgb(40 40 50 / 0.35);
+  --shadow-pop: 0 8px 30px rgba(30, 30, 40, 0.16);
+  --shadow-modal: 0 12px 40px rgba(30, 30, 40, 0.2);
+  --shadow-tooltip: var(--shadow-modal);
+}
+
+:root[data-theme="wraeclast"] {
+  color-scheme: dark;
+
+  --bg-0: oklch(34.0% 0.014 255);
+  --bg-1: oklch(36.2% 0.015 255);
+  --bg-2: oklch(38.5% 0.016 255);
+  --bg-3: oklch(40.8% 0.017 255);
+  --bg-hover: oklch(43.0% 0.018 255);
+  --bg-active: oklch(46.0% 0.019 255);
+
+  --line-0: oklch(42.0% 0.016 250);
+  --line-1: oklch(47.0% 0.019 250);
+  --line-2: oklch(54.0% 0.022 250);
+
+  --fg-0: oklch(97.5% 0.024 85);
+  --fg-1: oklch(92.5% 0.030 85);
+  --fg-2: oklch(86.0% 0.025 85);
+  --fg-3: oklch(83.0% 0.022 85);
+  --fg-4: oklch(68.0% 0.018 85);
+
+  --focus: oklch(74.1% 0.108 269);
+  --brand: oklch(66% 0.18 264);
+  --ok: oklch(79.4% 0.130 153);
+  --warn: oklch(80.9% 0.123 81);
+  --bad: oklch(77.5% 0.150 23);
+
+  --c-life: oklch(75.5% 0.143 22);
+  --c-mana: oklch(75.0% 0.128 265);
+  --c-es: oklch(81.3% 0.097 211);
+  --c-fire: oklch(75.3% 0.155 42);
+  --c-cold: oklch(78.9% 0.120 240);
+  --c-lightning: oklch(89.4% 0.156 106);
+  --c-chaos: oklch(75.6% 0.168 310);
+  --c-physical: oklch(84.8% 0.047 83);
+  --c-unique: oklch(74.7% 0.125 58);
+  --c-rare: oklch(82.0% 0.137 95);
+  --c-magic: oklch(74.5% 0.131 277);
+  --c-normal: oklch(88.0% 0.022 77);
+  --c-gem: oklch(80.3% 0.127 174);
+  --c-spirit: oklch(86.4% 0.117 84);
+  --c-currency: oklch(76.6% 0.114 72);
+  --c-author: oklch(81.0% 0.100 350);
+  --c-class: oklch(80.0% 0.090 250);
+
+  --accent: oklch(80.0% 0.120 82);
+  --accent-fg: oklch(20.0% 0.020 82);
+  --primary-hover: oklch(85.0% 0.120 82);
+  --fade-off: 0.55;
+  --sel-mix: 42%;
+  --pob-mix: 100%;
+  --backdrop: rgb(12 14 20 / 0.45);
+  --shadow-pop: 0 8px 30px rgba(12, 14, 20, 0.45);
+  --shadow-modal: 0 12px 40px rgba(12, 14, 20, 0.4);
+  --shadow-tooltip: 0 16px 56px rgba(12, 14, 20, 0.65), 0 4px 18px rgba(12, 14, 20, 0.5);
+}
+
+:root[data-theme="abyss"] {
+  color-scheme: dark;
+
+  --bg-0: oklch(14.4% 0.012 122);
+  --bg-1: oklch(16.9% 0.015 122);
+  --bg-2: oklch(19.4% 0.018 122);
+  --bg-3: oklch(22.2% 0.022 122);
+  --bg-hover: oklch(24.8% 0.026 122);
+  --bg-active: oklch(28.2% 0.032 122);
+
+  --line-0: oklch(22.6% 0.014 122);
+  --line-1: oklch(27.4% 0.019 122);
+  --line-2: oklch(33.6% 0.026 122);
+
+  --fg-0: oklch(95.6% 0.014 112);
+  --fg-1: oklch(79.0% 0.020 115);
+  --fg-2: oklch(65.5% 0.024 118);
+  --fg-3: oklch(60.0% 0.024 118);
+  --fg-4: oklch(46.5% 0.020 120);
+
+  --focus: oklch(84.0% 0.180 113);
+  --brand: oklch(70.0% 0.150 125);
+
+  --accent: oklch(86.5% 0.195 112);
+  --accent-fg: oklch(18.0% 0.040 122);
+  --primary-hover: oklch(91.0% 0.190 112);
+  --fade-off: 0.55;
+  --sel-mix: 30%;
+  --pob-mix: 100%;
+  --backdrop: rgb(3 5 1 / 0.6);
+  --shadow-pop: 0 8px 30px rgba(0, 0, 0, 0.6);
+  --shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --shadow-tooltip: 0 20px 70px rgba(0, 0, 0, 0.9), 0 6px 24px rgba(0, 0, 0, 0.75);
+  --glow: color-mix(in oklab, var(--accent) 16%, transparent);
+}
+
+:root[data-theme="breach"] {
+  color-scheme: dark;
+
+  --bg-0: oklch(14.6% 0.014 302);
+  --bg-1: oklch(17.2% 0.019 302);
+  --bg-2: oklch(19.8% 0.024 302);
+  --bg-3: oklch(22.8% 0.029 302);
+  --bg-hover: oklch(25.6% 0.034 302);
+  --bg-active: oklch(29.0% 0.041 302);
+
+  --line-0: oklch(23.6% 0.025 302);
+  --line-1: oklch(28.8% 0.032 302);
+  --line-2: oklch(35.4% 0.042 302);
+
+  --fg-0: oklch(96.2% 0.014 312);
+  --fg-1: oklch(80.6% 0.032 308);
+  --fg-2: oklch(66.8% 0.042 304);
+  --fg-3: oklch(61.0% 0.042 304);
+  --fg-4: oklch(47.5% 0.036 302);
+
+  --focus: oklch(68.0% 0.220 304);
+  --brand: oklch(56.0% 0.250 300);
+
+  --accent: oklch(73.5% 0.200 322);
+  --accent-fg: oklch(16.0% 0.030 302);
+  --primary-hover: oklch(79.0% 0.180 322);
+  --fade-off: 0.55;
+  --sel-mix: 36%;
+  --pob-mix: 100%;
+  --backdrop: rgb(8 2 14 / 0.55);
+  --shadow-pop: 0 8px 30px rgba(6, 0, 12, 0.6);
+  --shadow-modal: 0 12px 40px rgba(6, 0, 12, 0.55);
+  --shadow-tooltip: 0 20px 70px rgba(6, 0, 12, 0.9), 0 6px 24px rgba(6, 0, 12, 0.75);
+  --glow: color-mix(in oklab, var(--accent) 20%, transparent);
+}
+
+:root[data-theme="ritual"] {
+  color-scheme: dark;
+
+  --bg-0: oklch(13.8% 0.016 20);
+  --bg-1: oklch(16.4% 0.021 20);
+  --bg-2: oklch(19.0% 0.026 20);
+  --bg-3: oklch(21.9% 0.031 20);
+  --bg-hover: oklch(24.6% 0.036 20);
+  --bg-active: oklch(28.0% 0.043 20);
+
+  --line-0: oklch(22.8% 0.028 20);
+  --line-1: oklch(27.8% 0.036 20);
+  --line-2: oklch(34.4% 0.046 20);
+
+  --fg-0: oklch(94.8% 0.020 70);
+  --fg-1: oklch(80.2% 0.026 62);
+  --fg-2: oklch(66.6% 0.030 50);
+  --fg-3: oklch(60.8% 0.030 45);
+  --fg-4: oklch(47.6% 0.028 35);
+
+  --focus: oklch(70.0% 0.160 32);
+  --brand: oklch(58.0% 0.200 25);
+
+  --accent: oklch(52.0% 0.195 25);
+  --accent-fg: oklch(96.5% 0.018 70);
+  --primary-hover: oklch(56.5% 0.205 25);
+  --fade-off: 0.55;
+  --sel-mix: 36%;
+  --pob-mix: 100%;
+  --backdrop: rgb(12 2 2 / 0.6);
+  --shadow-pop: 0 8px 30px rgba(10, 0, 0, 0.6);
+  --shadow-modal: 0 12px 40px rgba(10, 0, 0, 0.55);
+  --shadow-tooltip: 0 20px 70px rgba(10, 0, 0, 0.9), 0 6px 24px rgba(10, 0, 0, 0.75);
+  --glow: color-mix(in oklab, var(--accent) 20%, transparent);
+}
+
+:root[data-theme="delirium"] {
+  color-scheme: light;
+
+  --bg-0: oklch(97.4% 0.005 235);
+  --bg-1: oklch(94.8% 0.008 235);
+  --bg-2: oklch(92.2% 0.011 235);
+  --bg-3: oklch(89.4% 0.014 235);
+  --bg-hover: oklch(90.4% 0.013 235);
+  --bg-active: oklch(86.4% 0.018 235);
+
+  --line-0: oklch(89.6% 0.013 235);
+  --line-1: oklch(84.6% 0.017 235);
+  --line-2: oklch(77.6% 0.023 235);
+
+  --fg-0: oklch(22.5% 0.024 248);
+  --fg-1: oklch(36.8% 0.026 246);
+  --fg-2: oklch(42.0% 0.026 244);
+  --fg-3: oklch(45.6% 0.024 242);
+  --fg-4: oklch(57.4% 0.024 240);
+
+  --focus: oklch(52.0% 0.150 240);
+  --brand: oklch(52.0% 0.140 235);
+  --ok: oklch(44.5% 0.108 150);
+  --warn: oklch(45.8% 0.098 65);
+  --bad: oklch(47.4% 0.172 27);
+
+  --c-life: oklch(47.4% 0.172 27);
+  --c-mana: oklch(46.5% 0.169 264);
+  --c-es: oklch(44.5% 0.078 215);
+  --c-fire: oklch(46.6% 0.149 38);
+  --c-cold: oklch(45.5% 0.126 250);
+  --c-lightning: oklch(44.0% 0.092 103);
+  --c-chaos: oklch(47.7% 0.200 305);
+  --c-physical: oklch(44.0% 0.038 80);
+  --c-unique: oklch(46.0% 0.103 55);
+  --c-rare: oklch(45.5% 0.092 92);
+  --c-magic: oklch(47.5% 0.222 272);
+  --c-normal: oklch(36.8% 0.026 246);
+  --c-gem: oklch(44.0% 0.080 176);
+  --c-spirit: oklch(45.0% 0.088 80);
+  --c-currency: oklch(45.5% 0.087 68);
+  --c-author: oklch(44.0% 0.075 195);
+  --c-class: oklch(45.0% 0.150 262);
+
+  --accent: oklch(50.0% 0.125 232);
+  --accent-fg: oklch(98.6% 0.004 235);
+  --primary-hover: oklch(44.0% 0.130 232);
+  --fade-off: 0.7;
+  --sel-mix: 22%;
+  --pob-mix: 38%;
+  --backdrop: rgb(30 40 56 / 0.3);
+  --shadow-pop: 0 8px 30px rgba(30, 40, 56, 0.16);
+  --shadow-modal: 0 12px 40px rgba(30, 40, 56, 0.2);
+  --shadow-tooltip: var(--shadow-modal);
+  --glow: color-mix(in oklab, var(--accent) 14%, transparent);
 }

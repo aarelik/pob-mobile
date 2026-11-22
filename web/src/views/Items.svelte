@@ -4,6 +4,7 @@
 	// template databases, or text copied from the game (Ctrl+C on an item).
 	import Icon from "../components/Icon.svelte";
 	import ItemEditor from "../components/ItemEditor.svelte";
+	import SetPicker from "../components/SetPicker.svelte";
 	import Sheet from "../components/Sheet.svelte";
 	import TooltipView from "../components/TooltipView.svelte";
 	import type { Slot, Tooltip } from "../engine/types";
@@ -273,6 +274,7 @@
 {/snippet}
 
 <div class="page">
+	<div class="sets"><SetPicker kind="item" /></div>
 	<h2 class="eyebrow">Equipment</h2>
 	{@render slotList(gear)}
 	{#if flasks.length}
@@ -385,6 +387,9 @@
 <ItemEditor bind:open={editorOpen} itemId={editId} slotName={sel?.slot ?? null} />
 
 <style>
+	.sets {
+		margin-top: 8px;
+	}
 	.page {
 		padding: 6px 14px 28px;
 	}

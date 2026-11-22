@@ -3,6 +3,7 @@
 	// shows what allocating it would do; the panel's button allocates.
 	import Icon from "../components/Icon.svelte";
 	import PobText from "../components/PobText.svelte";
+	import SetPicker from "../components/SetPicker.svelte";
 	import { app } from "../lib/app.svelte";
 	import { draw, drawArt, TreeModel, type ArtContext, type TreeJewel, type Highlight, type TreeState, type View } from "../lib/tree";
 	import type { ArtState } from "../lib/tree-art";
@@ -270,8 +271,6 @@
 		select(n.id, true);
 	}
 
-	const undo = () => app.mutate("tree_undo");
-	const redo = () => app.mutate("tree_redo");
 	function reset() {
 		if (confirm("Remove every allocated passive from this tree?")) app.mutate("reset_tree");
 	}
@@ -319,10 +318,8 @@
 			</span>
 			<span class="pts num asc">{tstate.ascendancyPointsUsed}<span class="muted">/{tstate.ascendancyPointsAvailable}</span></span>
 		{/if}
-		<span class="spacer"></span>
+		<span class="spacer"><SetPicker kind="spec" label="Tree" /></span>
 		<button class="icon-btn" aria-label="Search the tree" onclick={() => (searchOpen = !searchOpen)}><Icon name="search" size={20} /></button>
-		<button class="icon-btn" aria-label="Undo" onclick={undo}><Icon name="undo" size={20} /></button>
-		<button class="icon-btn" aria-label="Redo" onclick={redo}><Icon name="redo" size={20} /></button>
 		<button class="icon-btn" aria-label="Show my tree" onclick={fit}><Icon name="fit" size={20} /></button>
 		<button class="icon-btn" aria-label="Reset tree" onclick={reset}><Icon name="trash" size={20} /></button>
 	</div>
@@ -432,6 +429,10 @@
 	}
 	.spacer {
 		flex: 1;
+		min-width: 0;
+		display: flex;
+		justify-content: center;
+		padding: 0 4px;
 	}
 	.search {
 		display: flex;

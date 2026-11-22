@@ -3,6 +3,7 @@
 	// visibility rules), grouped by section, with search.
 	import Icon from "../components/Icon.svelte";
 	import PobText from "../components/PobText.svelte";
+	import SetPicker from "../components/SetPicker.svelte";
 	import type { ConfigOption, ConfigState } from "../engine/types";
 	import { app } from "../lib/app.svelte";
 	import { stripPobText } from "../lib/pobtext";
@@ -66,6 +67,7 @@
 </script>
 
 <div class="page">
+	<div class="sets"><SetPicker kind="config" /></div>
 	<div class="search">
 		<Icon name="search" size={18} />
 		<input class="field" type="search" placeholder="Search options" bind:value={query} />
@@ -112,6 +114,9 @@
 </div>
 
 <style>
+	.sets {
+		margin-bottom: 10px;
+	}
 	.page {
 		padding: 12px 14px 28px;
 	}

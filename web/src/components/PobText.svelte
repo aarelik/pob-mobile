@@ -4,4 +4,4 @@
 	const spans = $derived(parsePobText(text));
 </script>
 
-{#each spans as s, i (i)}<span style:color={s.color || null}>{s.text}</span>{/each}
+{#each spans as s, i (i)}<span style:color={s.color ? `color-mix(in oklab, ${s.color} var(--pob-mix, 100%), var(--fg-0))` : null}>{s.text}</span>{/each}
