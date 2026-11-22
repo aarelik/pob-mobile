@@ -2,3 +2,5 @@ pob/
 engine/build/
 node_modules/
 dist/
+web/public/pob/
+web/public/engine/
